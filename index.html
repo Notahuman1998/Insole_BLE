@@ -254,20 +254,31 @@
             // Unpack FSR array & Record
             let fsrVals = [];
             for(let i=0; i<8; i++) {
-                const fsrRaw = view.getUint16(24 + (i * 2), true);
-                fsrVals.push(fsrRaw);
-                document.getElementById(`val-${i}`).textContent = fsrRaw;
-
-                // Heat map dot coloring
+                const ohms = view.getUint16(24 + (i * 2), true);
+                
+                // If it is 65535, that means -1 (unpressed)
+                fsrVals.push(ohms === 65535 ? -1 : ohms); 
+                
                 const dot = document.getElementById(`dot-${i}`);
-                if (fsrRaw > 100) { 
-                    let intensity = Math.min(1, fsrRaw / 3000); 
+                const valSpan = document.getElementById(`val-${i}`);
+
+                if (ohms === 65535) {
+                    valSpan.textContent = "----";
+                    dot.style.backgroundColor = ''; 
+                    dot.style.borderColor = ''; 
+                    dot.style.boxShadow = 'none'; 
+                    dot.style.transform = 'scale(1)';
+                } else {
+                    valSpan.textContent = ohms;
+                    
+                    // The old WiFi Math! Maps 20,000 ohms (light) down to 500 ohms (heavy)
+                    let intensity = map(ohms, 20000, 500, 0, 1);
+                    intensity = Math.max(0, Math.min(1, intensity)); // Clamp it between 0 and 1
+                    
                     dot.style.backgroundColor = `rgba(239,68,68,${0.3 + intensity*0.7})`;
                     dot.style.borderColor = `rgba(248,113,113,1)`;
                     dot.style.boxShadow = `0 0 ${15*intensity}px rgba(239,68,68,${intensity})`;
                     dot.style.transform = `scale(${1 + intensity*0.25})`;
-                } else {
-                    dot.style.backgroundColor = ''; dot.style.borderColor = ''; dot.style.boxShadow = 'none'; dot.style.transform = 'scale(1)';
                 }
             }
 
