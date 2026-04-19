@@ -1,109 +1,216 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Shoe BLE Dashboard</title>
+    <title>Smart Shoe BLE Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
     <style>
         .sensor-dot { transition: background-color 0.1s linear, box-shadow 0.1s linear, transform 0.1s; }
         #insole-canvas { width: 100% !important; height: 350px !important; border-radius: 12px; }
+        /* Custom scrollbar for dark mode */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
     </style>
 </head>
-<body class="bg-slate-900 text-slate-200 min-h-screen p-4 md:p-8 font-sans">
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-200 min-h-screen font-sans transition-colors duration-300">
 
-    <header class="max-w-6xl mx-auto mb-8 flex justify-between items-end border-b border-slate-700 pb-4">
-        <div>
-            <h1 class="text-3xl font-bold text-white tracking-tight">Insole <span class="text-blue-500">BLE Pro</span></h1>
-            <p class="text-slate-400 text-sm mt-1">100Hz Deterministic Telemetry</p>
+    <nav class="border-b border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-2xl font-bold tracking-tight">Insole <span class="text-blue-500">BLE Pro</span></h1>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button id="tab-live" class="px-4 py-2 text-sm font-bold text-blue-600 border-b-2 border-blue-600 transition-colors">Live Dashboard</button>
+                    <button id="tab-viewer" class="px-4 py-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">Data Viewer</button>
+                    
+                    <div class="w-px h-6 bg-slate-300 dark:bg-slate-700 mx-2"></div>
+                    
+                    <button id="theme-toggle" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                        <svg id="theme-icon-dark" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                        <svg id="theme-icon-light" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 2.32a1 1 0 011.415 0l.707.707a1 1 0 01-1.414 1.414l-.707-.707a1 1 0 010-1.414zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM14.22 15.465a1 1 0 010 1.414l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.22-1.465a1 1 0 01-1.415 0l-.707-.707a1 1 0 011.414-1.414l.707.707a1 1 0 010 1.414zM3 10a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1zM4.693 5.405a1 1 0 010-1.414l.707-.707a1 1 0 011.414 1.414l-.707.707a1 1 0 01-1.414 0zM10 5a5 5 0 100 10 5 5 0 000-10z" clip-rule="evenodd"></path></svg>
+                    </button>
+                </div>
+            </div>
         </div>
-        
-        <div class="flex flex-col items-end gap-3">
-            <div class="flex items-center gap-4">
-                <div class="flex items-center gap-2">
-                    <div id="status-dot" class="w-3 h-3 rounded-full bg-red-500"></div>
-                    <span id="status-text" class="text-sm font-medium text-red-400">Disconnected</span>
-                </div>
-                <button id="btn-connect" class="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded shadow transition-colors">Pair Bluetooth</button>
+    </nav>
+
+    <div id="view-live" class="p-4 md:p-8 block">
+        <header class="max-w-6xl mx-auto mb-8 flex justify-between items-end border-b border-slate-300 dark:border-slate-700 pb-4">
+            <div>
+                <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">100Hz Deterministic Telemetry</p>
             </div>
-            <div class="flex gap-2">
-                <button id="btn-record-manual" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded shadow transition-colors">Start Recording</button>
-                <button id="btn-record-1s" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold rounded shadow transition-colors">Record Strict 1s</button>
-                <button id="btn-download" class="px-4 py-2 bg-slate-700 text-slate-400 text-sm font-bold rounded shadow cursor-not-allowed transition-colors" disabled>Download CSV</button>
-            </div>
-        </div>
-    </header>
-
-    <main class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-        <section class="lg:col-span-1 bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-xl">
-            <h2 class="text-xl font-semibold mb-6 flex items-center gap-2">
-                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                FSR Pressure Matrix
-            </h2>
-
-            <div class="relative w-full max-w-[250px] mx-auto aspect-[1/2] bg-slate-900 rounded-[60px] border-4 border-slate-700 p-4 shadow-inner">
-                <svg class="absolute inset-0 w-full h-full opacity-20 pointer-events-none" viewBox="0 0 100 200" preserveAspectRatio="none">
-                    <path d="M 50 10 C 70 10, 85 30, 85 60 C 85 100, 70 120, 70 150 C 70 180, 60 190, 50 190 C 40 190, 30 180, 30 150 C 30 120, 15 100, 15 60 C 15 30, 30 10, 50 10 Z" fill="white"/>
-                </svg>
-                <div id="dot-0" class="sensor-dot absolute w-8 h-8 rounded-full bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-xs font-bold top-[10%] right-[40%] transform translate-x-1/2">1</div>
-                <div id="dot-1" class="sensor-dot absolute w-6 h-6 rounded-full bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-[10px] font-bold top-[18%] left-[25%] transform -translate-x-1/2">2</div>
-                <div id="dot-2" class="sensor-dot absolute w-8 h-8 rounded-full bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-xs font-bold top-[30%] right-[50%] transform translate-x-1/2">3</div>
-                <div id="dot-3" class="sensor-dot absolute w-7 h-7 rounded-full bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-[10px] font-bold top-[35%] right-[22%] transform -translate-x-1/2">4</div>
-                <div id="dot-4" class="sensor-dot absolute w-7 h-7 rounded-full bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-xs font-bold top-[48%] right-[25%] transform translate-x-1/2">5</div>
-                <div id="dot-5" class="sensor-dot absolute w-7 h-7 rounded-full bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-xs font-bold top-[70%] left-[35%] transform translate-x-1/2">6</div>
-                <div id="dot-6" class="sensor-dot absolute w-7 h-7 rounded-full bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-xs font-bold top-[73%] right-[35%] transform -translate-x-1/2">7</div>
-                <div id="dot-7" class="sensor-dot absolute w-8 h-8 rounded-full bg-slate-700 border-2 border-slate-600 flex items-center justify-center text-xs font-bold top-[82%] right-[42%] transform -translate-x-1/2">8</div>
-            </div>
-
-            <div class="mt-6 grid grid-cols-2 gap-2 text-sm" id="fsr-values">
+            <div class="flex flex-col items-end gap-3">
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <div id="status-dot" class="w-3 h-3 rounded-full bg-red-500"></div>
+                        <span id="status-text" class="text-sm font-medium text-red-500 dark:text-red-400">Disconnected</span>
+                    </div>
+                    <button id="btn-connect" class="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded shadow transition-colors">Pair Bluetooth</button>
                 </div>
-        </section>
-
-        <section class="lg:col-span-2 space-y-8">
-            <div class="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-xl relative">
-                <div class="absolute top-6 right-6 font-mono text-sm text-right space-y-1 z-10">
-                    <div class="bg-slate-900/80 px-3 py-1 rounded border border-slate-700 backdrop-blur-sm"><span class="text-slate-500">Ping: &nbsp;</span><span id="ping-val" class="text-green-400 font-bold">0 ms</span></div>
-                    <div class="bg-slate-900/80 px-3 py-1 rounded border border-slate-700 backdrop-blur-sm"><span class="text-slate-500">Pitch: </span><span id="pitch-val" class="text-blue-300 font-bold">0.0°</span></div>
-                    <div class="bg-slate-900/80 px-3 py-1 rounded border border-slate-700 backdrop-blur-sm"><span class="text-slate-500">Roll: &nbsp;</span><span id="roll-val"  class="text-blue-300 font-bold">0.0°</span></div>
+                <div class="flex gap-2">
+                    <button id="btn-record-manual" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded shadow transition-colors">Start Recording</button>
+                    <button id="btn-record-1s" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold rounded shadow transition-colors">Record Strict 1s</button>
+                    <button id="btn-download" class="px-4 py-2 bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-sm font-bold rounded shadow cursor-not-allowed transition-colors" disabled>Download CSV</button>
                 </div>
-                <h2 class="text-xl font-semibold mb-2 flex items-center gap-2">
-                    <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"></path></svg>
-                    Smooth 3D Orientation
+            </div>
+        </header>
+
+        <main class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <section class="lg:col-span-1 bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-xl">
+                <h2 class="text-xl font-semibold mb-6 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    FSR Pressure Matrix
                 </h2>
-                <canvas id="insole-canvas"></canvas>
+                <div class="relative w-full max-w-[250px] mx-auto aspect-[1/2] bg-slate-100 dark:bg-slate-900 rounded-[60px] border-4 border-slate-300 dark:border-slate-700 p-4 shadow-inner">
+                    <svg class="absolute inset-0 w-full h-full opacity-20 pointer-events-none" viewBox="0 0 100 200" preserveAspectRatio="none">
+                        <path d="M 50 10 C 70 10, 85 30, 85 60 C 85 100, 70 120, 70 150 C 70 180, 60 190, 50 190 C 40 190, 30 180, 30 150 C 30 120, 15 100, 15 60 C 15 30, 30 10, 50 10 Z" fill="currentColor"/>
+                    </svg>
+                    <div id="dot-0" class="sensor-dot absolute w-8 h-8 rounded-full bg-slate-300 dark:bg-slate-700 border-2 border-slate-400 dark:border-slate-600 flex items-center justify-center text-xs font-bold top-[10%] right-[40%] transform translate-x-1/2">1</div>
+                    <div id="dot-1" class="sensor-dot absolute w-6 h-6 rounded-full bg-slate-300 dark:bg-slate-700 border-2 border-slate-400 dark:border-slate-600 flex items-center justify-center text-[10px] font-bold top-[18%] left-[25%] transform -translate-x-1/2">2</div>
+                    <div id="dot-2" class="sensor-dot absolute w-8 h-8 rounded-full bg-slate-300 dark:bg-slate-700 border-2 border-slate-400 dark:border-slate-600 flex items-center justify-center text-xs font-bold top-[30%] right-[50%] transform translate-x-1/2">3</div>
+                    <div id="dot-3" class="sensor-dot absolute w-7 h-7 rounded-full bg-slate-300 dark:bg-slate-700 border-2 border-slate-400 dark:border-slate-600 flex items-center justify-center text-[10px] font-bold top-[35%] right-[22%] transform -translate-x-1/2">4</div>
+                    <div id="dot-4" class="sensor-dot absolute w-7 h-7 rounded-full bg-slate-300 dark:bg-slate-700 border-2 border-slate-400 dark:border-slate-600 flex items-center justify-center text-xs font-bold top-[48%] right-[25%] transform translate-x-1/2">5</div>
+                    <div id="dot-5" class="sensor-dot absolute w-7 h-7 rounded-full bg-slate-300 dark:bg-slate-700 border-2 border-slate-400 dark:border-slate-600 flex items-center justify-center text-xs font-bold top-[70%] left-[35%] transform translate-x-1/2">6</div>
+                    <div id="dot-6" class="sensor-dot absolute w-7 h-7 rounded-full bg-slate-300 dark:bg-slate-700 border-2 border-slate-400 dark:border-slate-600 flex items-center justify-center text-xs font-bold top-[73%] right-[35%] transform -translate-x-1/2">7</div>
+                    <div id="dot-7" class="sensor-dot absolute w-8 h-8 rounded-full bg-slate-300 dark:bg-slate-700 border-2 border-slate-400 dark:border-slate-600 flex items-center justify-center text-xs font-bold top-[82%] right-[42%] transform -translate-x-1/2">8</div>
+                </div>
+                <div class="mt-6 grid grid-cols-2 gap-2 text-sm" id="fsr-values"></div>
+            </section>
+
+            <section class="lg:col-span-2 space-y-8">
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-xl relative overflow-hidden">
+                    <div class="absolute top-6 right-6 font-mono text-sm text-right space-y-1 z-10">
+                        <div class="bg-slate-100/80 dark:bg-slate-900/80 px-3 py-1 rounded border border-slate-300 dark:border-slate-700 backdrop-blur-sm"><span class="text-slate-500">Ping: &nbsp;</span><span id="ping-val" class="text-green-600 dark:text-green-400 font-bold">0 ms</span></div>
+                        <div class="bg-slate-100/80 dark:bg-slate-900/80 px-3 py-1 rounded border border-slate-300 dark:border-slate-700 backdrop-blur-sm"><span class="text-slate-500">Pitch: </span><span id="pitch-val" class="text-blue-600 dark:text-blue-300 font-bold">0.0°</span></div>
+                        <div class="bg-slate-100/80 dark:bg-slate-900/80 px-3 py-1 rounded border border-slate-300 dark:border-slate-700 backdrop-blur-sm"><span class="text-slate-500">Roll: &nbsp;</span><span id="roll-val"  class="text-blue-600 dark:text-blue-300 font-bold">0.0°</span></div>
+                    </div>
+                    <h2 class="text-xl font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"></path></svg>
+                        Smooth 3D Orientation
+                    </h2>
+                    <canvas id="insole-canvas"></canvas>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-xl">
+                        <h3 class="text-lg font-medium mb-4 text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700 pb-2">Accelerometer (G)</h3>
+                        <div class="space-y-4">
+                            <div><div class="flex justify-between mb-1"><span class="text-slate-500 dark:text-slate-400 font-mono">Acc_X</span><span id="acc-x" class="font-mono font-bold">0.00</span></div><div class="w-full bg-slate-200 dark:bg-slate-900 rounded-full h-2"><div id="bar-ax" class="bg-red-500 h-2 rounded-full" style="width:50%"></div></div></div>
+                            <div><div class="flex justify-between mb-1"><span class="text-slate-500 dark:text-slate-400 font-mono">Acc_Y</span><span id="acc-y" class="font-mono font-bold">0.00</span></div><div class="w-full bg-slate-200 dark:bg-slate-900 rounded-full h-2"><div id="bar-ay" class="bg-green-500 h-2 rounded-full" style="width:50%"></div></div></div>
+                            <div><div class="flex justify-between mb-1"><span class="text-slate-500 dark:text-slate-400 font-mono">Acc_Z</span><span id="acc-z" class="font-mono font-bold">0.00</span></div><div class="w-full bg-slate-200 dark:bg-slate-900 rounded-full h-2"><div id="bar-az" class="bg-blue-500 h-2 rounded-full" style="width:50%"></div></div></div>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-xl">
+                        <h3 class="text-lg font-medium mb-4 text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700 pb-2">Gyroscope (deg/s)</h3>
+                        <div class="space-y-4">
+                            <div><div class="flex justify-between mb-1"><span class="text-slate-500 dark:text-slate-400 font-mono">Gyr_X</span><span id="gyr-x" class="font-mono font-bold">0.00</span></div><div class="w-full bg-slate-200 dark:bg-slate-900 rounded-full h-2"><div id="bar-gx" class="bg-red-400 h-2 rounded-full" style="width:50%"></div></div></div>
+                            <div><div class="flex justify-between mb-1"><span class="text-slate-500 dark:text-slate-400 font-mono">Gyr_Y</span><span id="gyr-y" class="font-mono font-bold">0.00</span></div><div class="w-full bg-slate-200 dark:bg-slate-900 rounded-full h-2"><div id="bar-gy" class="bg-green-400 h-2 rounded-full" style="width:50%"></div></div></div>
+                            <div><div class="flex justify-between mb-1"><span class="text-slate-500 dark:text-slate-400 font-mono">Gyr_Z</span><span id="gyr-z" class="font-mono font-bold">0.00</span></div><div class="w-full bg-slate-200 dark:bg-slate-900 rounded-full h-2"><div id="bar-gz" class="bg-blue-400 h-2 rounded-full" style="width:50%"></div></div></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="view-viewer" class="p-4 md:p-8 hidden">
+        <header class="max-w-6xl mx-auto mb-8 flex justify-between items-end border-b border-slate-300 dark:border-slate-700 pb-4">
+            <div>
+                <h2 class="text-2xl font-bold">CSV Analyzer</h2>
+                <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">Review latency jitter and FSR pressure curves.</p>
+            </div>
+            <div class="flex gap-4">
+                <input type="file" id="csvFileInput" accept=".csv" class="hidden" />
+                <label for="csvFileInput" class="px-6 py-2 border-2 border-slate-300 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-800 text-sm font-bold rounded cursor-pointer transition-colors">
+                    Upload CSV
+                </label>
+                <button id="btn-load-latest" class="px-6 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-bold rounded shadow transition-colors">
+                    Load Latest Recording
+                </button>
+            </div>
+        </header>
+
+        <main class="max-w-6xl mx-auto space-y-8">
+            <div id="stats" class="text-lg font-bold text-blue-600 dark:text-blue-400 text-center"></div>
+
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700">
+                <div id="latencyChart" class="w-full h-80"></div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div class="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-xl">
-                    <h3 class="text-lg font-medium mb-4 text-slate-300 border-b border-slate-700 pb-2">Accelerometer (G)</h3>
-                    <div class="space-y-4">
-                        <div><div class="flex justify-between mb-1"><span class="text-slate-400 font-mono">Acc_X</span><span id="acc-x" class="font-mono text-white">0.00</span></div><div class="w-full bg-slate-900 rounded-full h-2"><div id="bar-ax" class="bg-red-500 h-2 rounded-full" style="width:50%"></div></div></div>
-                        <div><div class="flex justify-between mb-1"><span class="text-slate-400 font-mono">Acc_Y</span><span id="acc-y" class="font-mono text-white">0.00</span></div><div class="w-full bg-slate-900 rounded-full h-2"><div id="bar-ay" class="bg-green-500 h-2 rounded-full" style="width:50%"></div></div></div>
-                        <div><div class="flex justify-between mb-1"><span class="text-slate-400 font-mono">Acc_Z</span><span id="acc-z" class="font-mono text-white">0.00</span></div><div class="w-full bg-slate-900 rounded-full h-2"><div id="bar-az" class="bg-blue-500 h-2 rounded-full" style="width:50%"></div></div></div>
-                    </div>
-                </div>
-                <div class="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-xl">
-                    <h3 class="text-lg font-medium mb-4 text-slate-300 border-b border-slate-700 pb-2">Gyroscope (deg/s)</h3>
-                    <div class="space-y-4">
-                        <div><div class="flex justify-between mb-1"><span class="text-slate-400 font-mono">Gyr_X</span><span id="gyr-x" class="font-mono text-white">0.00</span></div><div class="w-full bg-slate-900 rounded-full h-2"><div id="bar-gx" class="bg-red-400 h-2 rounded-full" style="width:50%"></div></div></div>
-                        <div><div class="flex justify-between mb-1"><span class="text-slate-400 font-mono">Gyr_Y</span><span id="gyr-y" class="font-mono text-white">0.00</span></div><div class="w-full bg-slate-900 rounded-full h-2"><div id="bar-gy" class="bg-green-400 h-2 rounded-full" style="width:50%"></div></div></div>
-                        <div><div class="flex justify-between mb-1"><span class="text-slate-400 font-mono">Gyr_Z</span><span id="gyr-z" class="font-mono text-white">0.00</span></div><div class="w-full bg-slate-900 rounded-full h-2"><div id="bar-gz" class="bg-blue-400 h-2 rounded-full" style="width:50%"></div></div></div>
-                    </div>
-                </div>
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700">
+                <div id="fsrChart" class="w-full h-[500px]"></div>
             </div>
-        </section>
-    </main>
+        </main>
+    </div>
 
     <script>
-        // --- Populate FSR Labels ---
-        const fsrContainer = document.getElementById('fsr-values');
-        for(let i=0; i<8; i++){
-            fsrContainer.innerHTML += `<div class="bg-slate-900 p-2 rounded flex justify-between"><span class="text-slate-500">CH${i+1}</span><span id="val-${i}" class="font-mono text-blue-300">0</span></div>`;
+        // --- 1. LIGHT/DARK THEME TOGGLE ---
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const darkIcon = document.getElementById('theme-icon-dark');
+        const lightIcon = document.getElementById('theme-icon-light');
+
+        // Check local storage or OS preference
+        if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            lightIcon.classList.remove('hidden'); darkIcon.classList.add('hidden');
+        } else {
+            document.documentElement.classList.remove('dark');
+            lightIcon.classList.add('hidden'); darkIcon.classList.remove('hidden');
         }
 
-       // --- Beautiful Three.js Setup ---
+        themeToggleBtn.addEventListener('click', function() {
+            darkIcon.classList.toggle('hidden');
+            lightIcon.classList.toggle('hidden');
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('color-theme', 'light');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('color-theme', 'dark');
+            }
+        });
+
+        // --- 2. TAB NAVIGATION LOGIC ---
+        const tabLive = document.getElementById('tab-live');
+        const tabViewer = document.getElementById('tab-viewer');
+        const viewLive = document.getElementById('view-live');
+        const viewViewer = document.getElementById('view-viewer');
+
+        function switchTab(activeTab) {
+            if (activeTab === 'live') {
+                viewLive.classList.remove('hidden');
+                viewViewer.classList.add('hidden');
+                tabLive.className = "px-4 py-2 text-sm font-bold text-blue-600 border-b-2 border-blue-600 transition-colors";
+                tabViewer.className = "px-4 py-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors";
+            } else {
+                viewLive.classList.add('hidden');
+                viewViewer.classList.remove('hidden');
+                tabViewer.className = "px-4 py-2 text-sm font-bold text-blue-600 border-b-2 border-blue-600 transition-colors";
+                tabLive.className = "px-4 py-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors";
+                
+                // Force Plotly to resize correctly when un-hidden
+                window.dispatchEvent(new Event('resize')); 
+            }
+        }
+        tabLive.addEventListener('click', () => switchTab('live'));
+        tabViewer.addEventListener('click', () => switchTab('viewer'));
+
+        // --- 3. LIVE DASHBOARD (Three.js & BLE) ---
+        const fsrContainer = document.getElementById('fsr-values');
+        for(let i=0; i<8; i++){
+            fsrContainer.innerHTML += `<div class="bg-slate-100 dark:bg-slate-900 p-2 rounded flex justify-between border border-slate-200 dark:border-slate-700"><span class="text-slate-500">CH${i+1}</span><span id="val-${i}" class="font-mono font-bold text-blue-600 dark:text-blue-300">0</span></div>`;
+        }
+
         const canvas = document.getElementById('insole-canvas');
         const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
         renderer.setPixelRatio(window.devicePixelRatio);
@@ -112,56 +219,44 @@
         camera.position.set(2.5, 3, 5);
         camera.lookAt(0, 0, 0);
 
-        // Lighting
-        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        dirLight.position.set(5, 10, 5);
-        scene.add(dirLight);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(5, 10, 5); scene.add(dirLight);
 
-        // Create a smooth, anatomical shoe shape using Bezier Curves
         const shape = new THREE.Shape();
         shape.moveTo(0, 1.5); 
-        shape.bezierCurveTo(0.6, 1.5, 0.7, 0.5, 0.4, 0); // Right Toe to Mid
-        shape.bezierCurveTo(0.2, -0.5, 0.5, -1.2, 0.3, -1.5); // Mid to Right Heel
-        shape.bezierCurveTo(0, -1.6, -0.4, -1.6, -0.4, -1.5); // Heel curve
-        shape.bezierCurveTo(-0.6, -1.2, -0.2, -0.5, -0.4, 0); // Left Heel to Mid
-        shape.bezierCurveTo(-0.7, 0.5, -0.7, 1.5, 0, 1.5); // Mid to Left Toe
+        shape.bezierCurveTo(0.6, 1.5, 0.7, 0.5, 0.4, 0); 
+        shape.bezierCurveTo(0.2, -0.5, 0.5, -1.2, 0.3, -1.5); 
+        shape.bezierCurveTo(0, -1.6, -0.4, -1.6, -0.4, -1.5); 
+        shape.bezierCurveTo(-0.6, -1.2, -0.2, -0.5, -0.4, 0); 
+        shape.bezierCurveTo(-0.7, 0.5, -0.7, 1.5, 0, 1.5); 
 
         const extrudeSettings = { depth: 0.15, bevelEnabled: true, bevelSegments: 4, steps: 2, bevelSize: 0.05, bevelThickness: 0.05 };
         const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-        geometry.center(); // Center the pivot point
+        geometry.center();
 
-        // Sleek Carbon-Fiber style material
-        const material = new THREE.MeshPhysicalMaterial({ 
-            color: 0x1d4ed8, metalness: 0.2, roughness: 0.1, clearcoat: 1.0, clearcoatRoughness: 0.1
-        });
-
+        const material = new THREE.MeshPhysicalMaterial({ color: 0x3b82f6, metalness: 0.1, roughness: 0.2, clearcoat: 0.8, clearcoatRoughness: 0.2 });
         const insoleGroup = new THREE.Group();
         const insoleMesh = new THREE.Mesh(geometry, material);
         
-        insoleMesh.rotation.x = Math.PI / 2; // Lay it flat
-        insoleMesh.rotation.z = Math.PI;     // <-- THE FIX: Flips the shoe 180 degrees (Toe backward)
-        
+        insoleMesh.rotation.x = Math.PI / 2; 
+        insoleMesh.rotation.z = Math.PI; // Toe facing backward
         insoleGroup.add(insoleMesh);
 
-        // Grid
-        scene.add(new THREE.GridHelper(10, 20, 0x1e3a5f, 0x1e293b).translateY(-1.0));
+        scene.add(new THREE.GridHelper(10, 20, 0x94a3b8, 0x475569).translateY(-1.0));
         scene.add(insoleGroup);
         renderer.setSize(canvas.clientWidth, 350, false);
 
         let targetPitch=0, targetRoll=0;
         function animate() {
             requestAnimationFrame(animate);
-            
-            // <-- THE FIX: Inverted the Pitch and Roll signs (+ / -) to match the new 180-degree flip
             insoleGroup.rotation.x += (-targetPitch * Math.PI/180 - insoleGroup.rotation.x) * 0.15;
             insoleGroup.rotation.z += (targetRoll * Math.PI/180 - insoleGroup.rotation.z) * 0.15;
-            
             renderer.render(scene, camera);
         }
         animate();
 
-        // --- CSV Recording Logic ---
+        // Recording State
         let isRecording = false;
         let csvData = [];
         const csvHeader = "Timestamp_ms,Pitch,Roll,AccX,AccY,AccZ,GyroX,GyroY,GyroZ,FSR1,FSR2,FSR3,FSR4,FSR5,FSR6,FSR7,FSR8\n";
@@ -172,14 +267,15 @@
         function startRecordingUI(btn, text) {
             isRecording = true; csvData = []; btn.textContent = text;
             btn.classList.replace('bg-blue-600', 'bg-red-600'); btn.classList.replace('bg-purple-600', 'bg-red-600');
-            btnDownload.disabled = true; btnDownload.classList.replace('bg-green-600', 'bg-slate-700');
+            btnDownload.disabled = true; btnDownload.classList.replace('bg-green-600', 'bg-slate-300');
         }
 
         function stopRecordingUI() {
             isRecording = false;
             btnManual.textContent = "Start Recording"; btnManual.classList.replace('bg-red-600', 'bg-blue-600');
             btn1s.textContent = "Record Strict 1s"; btn1s.classList.replace('bg-red-600', 'bg-purple-600');
-            btnDownload.disabled = false; btnDownload.classList.replace('bg-slate-700', 'bg-green-600');
+            btnDownload.disabled = false; btnDownload.classList.replace('bg-slate-300', 'bg-green-600');
+            btnDownload.classList.replace('dark:bg-slate-700', 'dark:bg-green-600');
         }
 
         btnManual.addEventListener('click', () => { isRecording ? stopRecordingUI() : startRecordingUI(btnManual, "Stop Recording"); });
@@ -195,7 +291,7 @@
             link.download = `ble_shoe_data_${Date.now()}.csv`; link.click();
         });
 
-        // --- BLE Logic & Unpacking ---
+        // BLE Handling
         const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
         const CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
         let lastTimestamp = 0;
@@ -204,7 +300,6 @@
             try {
                 const device = await navigator.bluetooth.requestDevice({ filters: [{ name: 'SmartInsole_BLE' }], optionalServices: [SERVICE_UUID] });
                 document.getElementById('status-text').textContent = 'Connecting...';
-                
                 const server = await device.gatt.connect();
                 const service = await server.getPrimaryService(SERVICE_UUID);
                 const characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
@@ -223,12 +318,9 @@
         function handleNotifications(event) {
             const view = event.target.value;
             
-            // Unpack 40 bytes (Little-Endian = true)
             const ts = view.getUint32(0, true);
             const p = view.getFloat32(4, true);
             const r = view.getFloat32(8, true);
-            
-            // Raw values divided by MPU6050 sensitivity scale factors
             const ax = view.getInt16(12, true) / 16384.0;
             const ay = view.getInt16(14, true) / 16384.0;
             const az = view.getInt16(16, true) / 16384.0;
@@ -236,11 +328,9 @@
             const gy = view.getInt16(20, true) / 131.0;
             const gz = view.getInt16(22, true) / 131.0;
 
-            // Ping math
             if(lastTimestamp !== 0) document.getElementById('ping-val').textContent = (ts - lastTimestamp) + " ms";
             lastTimestamp = ts;
 
-            // Update UI Numbers
             targetPitch = p; targetRoll = r;
             document.getElementById('pitch-val').textContent = p.toFixed(1) + '°';
             document.getElementById('roll-val').textContent = r.toFixed(1) + '°';
@@ -251,12 +341,9 @@
             document.getElementById('gyr-y').textContent=gy.toFixed(1); document.getElementById('bar-gy').style.width=map(gy,-250,250,0,100)+'%';
             document.getElementById('gyr-z').textContent=gz.toFixed(1); document.getElementById('bar-gz').style.width=map(gz,-250,250,0,100)+'%';
 
-            // Unpack FSR array & Record
             let fsrVals = [];
             for(let i=0; i<8; i++) {
                 const ohms = view.getUint16(24 + (i * 2), true);
-                
-                // If it is 65535, that means -1 (unpressed)
                 fsrVals.push(ohms === 65535 ? -1 : ohms); 
                 
                 const dot = document.getElementById(`dot-${i}`);
@@ -264,17 +351,11 @@
 
                 if (ohms === 65535) {
                     valSpan.textContent = "----";
-                    dot.style.backgroundColor = ''; 
-                    dot.style.borderColor = ''; 
-                    dot.style.boxShadow = 'none'; 
-                    dot.style.transform = 'scale(1)';
+                    dot.style.backgroundColor = ''; dot.style.borderColor = ''; dot.style.boxShadow = 'none'; dot.style.transform = 'scale(1)';
                 } else {
                     valSpan.textContent = ohms;
-                    
-                    // The old WiFi Math! Maps 20,000 ohms (light) down to 500 ohms (heavy)
                     let intensity = map(ohms, 20000, 500, 0, 1);
-                    intensity = Math.max(0, Math.min(1, intensity)); // Clamp it between 0 and 1
-                    
+                    intensity = Math.max(0, Math.min(1, intensity)); 
                     dot.style.backgroundColor = `rgba(239,68,68,${0.3 + intensity*0.7})`;
                     dot.style.borderColor = `rgba(248,113,113,1)`;
                     dot.style.boxShadow = `0 0 ${15*intensity}px rgba(239,68,68,${intensity})`;
@@ -286,6 +367,119 @@
                 csvData.push(`${ts},${p.toFixed(2)},${r.toFixed(2)},${ax.toFixed(2)},${ay.toFixed(2)},${az.toFixed(2)},${gx.toFixed(2)},${gy.toFixed(2)},${gz.toFixed(2)},${fsrVals.join(",")}\n`);
             }
         }
+
+        // --- 4. DATA VIEWER (Plotly & PapaParse) ---
+        
+        // Mode A: File Upload
+        document.getElementById('csvFileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            Papa.parse(file, { header: true, dynamicTyping: true, skipEmptyLines: true, complete: function(results) { processData(results.data); } });
+        });
+
+        // Mode B: Load Latest Recording directly from memory!
+        document.getElementById('btn-load-latest').addEventListener('click', function() {
+            if (csvData.length === 0) {
+                alert("You haven't recorded any data yet! Go to the Live tab and click 'Start Recording'.");
+                return;
+            }
+            // Parse the raw array sitting in Javascript memory
+            const rawCSVString = csvHeader + csvData.join("");
+            Papa.parse(rawCSVString, { header: true, dynamicTyping: true, skipEmptyLines: true, complete: function(results) { processData(results.data); } });
+        });
+
+        function processData(data) {
+            let deltas = [];
+            let sampleNumbers = [];
+            
+            // Arrays for all 8 FSRs
+            let fsrArrays = [[], [], [], [], [], [], [], []];
+
+            for (let i = 1; i < data.length; i++) {
+                if (!data[i] || !data[i-1]) continue;
+                
+                let current = data[i].Timestamp_ms;
+                let previous = data[i-1].Timestamp_ms;
+                
+                if (typeof current === 'number' && typeof previous === 'number') {
+                    deltas.push(current - previous);
+                    sampleNumbers.push(i);
+
+                    // Grab all 8 FSRs. If missing or -1 or 65535, set to null to break the line.
+                    for (let j = 0; j < 8; j++) {
+                        let colName = 'FSR' + (j + 1);
+                        let val = data[i][colName];
+                        if (val !== undefined && val > 0 && val < 65535) {
+                            fsrArrays[j].push(val);
+                        } else {
+                            fsrArrays[j].push(null);
+                        }
+                    }
+                }
+            }
+
+            if (deltas.length === 0) {
+                document.getElementById('stats').innerText = "Error: No valid data found."; return;
+            }
+
+            let sum = deltas.reduce((a, b) => a + b, 0);
+            let mean = sum / deltas.length;
+            let stdDev = Math.sqrt(deltas.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / deltas.length);
+            
+            document.getElementById('stats').innerText = `Timing Check: ${mean.toFixed(2)} ms avg | Standard Deviation: ${stdDev.toFixed(2)} ms`;
+
+            plotLatency(sampleNumbers, deltas);
+            plotAllFSRs(sampleNumbers, fsrArrays);
+        }
+
+        function getChartColors() {
+            const isDark = document.documentElement.classList.contains('dark');
+            return {
+                bg: isDark ? '#1e293b' : '#ffffff',
+                text: isDark ? '#cbd5e1' : '#334155',
+                grid: isDark ? '#334155' : '#e2e8f0'
+            };
+        }
+
+        function plotLatency(xData, yData) {
+            const colors = getChartColors();
+            let trace1 = { x: xData, y: yData, mode: 'lines+markers', name: 'Delta Time', line: {color: '#3b82f6', width: 1}, marker: {size: 3} };
+            let layout = {
+                title: { text: 'Time Between Packets (Jitter)', font: {color: colors.text} },
+                paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+                xaxis: {title: 'Sample', color: colors.text, gridcolor: colors.grid},
+                yaxis: {title: 'Delta Time (ms)', color: colors.text, gridcolor: colors.grid, range: [0, Math.max(...yData) + 5]}
+            };
+            Plotly.newPlot('latencyChart', [trace1], layout, {responsive: true});
+        }
+
+        function plotAllFSRs(xData, fsrArrays) {
+            const colors = getChartColors();
+            const traceColors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6'];
+            let traces = [];
+
+            for (let i = 0; i < 8; i++) {
+                traces.push({
+                    x: xData, y: fsrArrays[i],
+                    mode: 'lines+markers', name: 'CH ' + (i+1),
+                    connectgaps: false,
+                    line: {width: 2, color: traceColors[i]}, marker: {size: 3}
+                });
+            }
+
+            let layout = {
+                title: { text: 'Resistance Drop (All 8 Sensors)', font: {color: colors.text} },
+                paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+                xaxis: {title: 'Sample', color: colors.text, gridcolor: colors.grid},
+                yaxis: {title: 'Resistance (Ohms)', color: colors.text, gridcolor: colors.grid, range: [0, 25000]}
+            };
+            Plotly.newPlot('fsrChart', traces, layout, {responsive: true});
+        }
+        
+        // Re-draw charts when theme changes so axes colors update
+        themeToggleBtn.addEventListener('click', () => {
+            window.dispatchEvent(new Event('resize'));
+        });
     </script>
 </body>
 </html>
