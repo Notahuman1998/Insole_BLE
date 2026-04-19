@@ -103,7 +103,7 @@
             fsrContainer.innerHTML += `<div class="bg-slate-900 p-2 rounded flex justify-between"><span class="text-slate-500">CH${i+1}</span><span id="val-${i}" class="font-mono text-blue-300">0</span></div>`;
         }
 
-        // --- Beautiful Three.js Setup ---
+       // --- Beautiful Three.js Setup ---
         const canvas = document.getElementById('insole-canvas');
         const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
         renderer.setPixelRatio(window.devicePixelRatio);
@@ -138,7 +138,10 @@
 
         const insoleGroup = new THREE.Group();
         const insoleMesh = new THREE.Mesh(geometry, material);
+        
         insoleMesh.rotation.x = Math.PI / 2; // Lay it flat
+        insoleMesh.rotation.z = Math.PI;     // <-- THE FIX: Flips the shoe 180 degrees (Toe backward)
+        
         insoleGroup.add(insoleMesh);
 
         // Grid
@@ -149,8 +152,11 @@
         let targetPitch=0, targetRoll=0;
         function animate() {
             requestAnimationFrame(animate);
-            insoleGroup.rotation.x += (targetPitch * Math.PI/180 - insoleGroup.rotation.x) * 0.15;
-            insoleGroup.rotation.z += (-targetRoll * Math.PI/180 - insoleGroup.rotation.z) * 0.15;
+            
+            // <-- THE FIX: Inverted the Pitch and Roll signs (+ / -) to match the new 180-degree flip
+            insoleGroup.rotation.x += (-targetPitch * Math.PI/180 - insoleGroup.rotation.x) * 0.15;
+            insoleGroup.rotation.z += (targetRoll * Math.PI/180 - insoleGroup.rotation.z) * 0.15;
+            
             renderer.render(scene, camera);
         }
         animate();
