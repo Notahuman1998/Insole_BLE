@@ -156,7 +156,7 @@
     </div>
 
     <script>
-        // --- 1. LIGHT/DARK THEME TOGGLE ---
+// --- 1. LIGHT/DARK THEME TOGGLE ---
         const themeToggleBtn = document.getElementById('theme-toggle');
         const darkIcon = document.getElementById('theme-icon-dark');
         const lightIcon = document.getElementById('theme-icon-light');
@@ -172,6 +172,7 @@
         themeToggleBtn.addEventListener('click', function() {
             darkIcon.classList.toggle('hidden');
             lightIcon.classList.toggle('hidden');
+            
             if (document.documentElement.classList.contains('dark')) {
                 document.documentElement.classList.remove('dark');
                 localStorage.setItem('color-theme', 'light');
@@ -179,6 +180,22 @@
                 document.documentElement.classList.add('dark');
                 localStorage.setItem('color-theme', 'dark');
             }
+            
+            // THE FIX: Dynamically inject new colors into the Plotly charts!
+            const latencyChart = document.getElementById('latencyChart');
+            if (latencyChart && latencyChart.data) {
+                const colors = getChartColors();
+                const layoutUpdate = {
+                    'title.font.color': colors.text,
+                    'xaxis.color': colors.text,
+                    'yaxis.color': colors.text,
+                    'xaxis.gridcolor': colors.grid,
+                    'yaxis.gridcolor': colors.grid
+                };
+                Plotly.relayout('latencyChart', layoutUpdate);
+                Plotly.relayout('fsrChart', layoutUpdate);
+            }
+            
             window.dispatchEvent(new Event('resize')); 
         });
 
