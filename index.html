@@ -196,4 +196,322 @@
                 tabViewer.className = "px-4 py-2 text-sm font-medium text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 transition-colors";
             } else {
                 viewLive.classList.add('hidden');
-                viewViewer.classList.remove
+                viewViewer.classList.remove('hidden');
+                tabViewer.className = "px-4 py-2 text-sm font-bold text-emerald-600 border-b-2 border-emerald-500 transition-colors";
+                tabLive.className = "px-4 py-2 text-sm font-medium text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 transition-colors";
+                window.dispatchEvent(new Event('resize')); 
+            }
+        }
+        tabLive.addEventListener('click', () => switchTab('live'));
+        tabViewer.addEventListener('click', () => switchTab('viewer'));
+
+        // --- 3. LIVE DASHBOARD (Three.js & BLE) ---
+        const fsrContainer = document.getElementById('fsr-values');
+        for(let i=0; i<8; i++){
+            fsrContainer.innerHTML += `<div class="bg-slate-50 dark:bg-slate-950 p-2 rounded-lg flex justify-between border border-slate-100 dark:border-slate-800"><span class="text-slate-400 text-xs font-bold pt-0.5">CH${i+1}</span><span id="val-${i}" class="font-mono font-bold text-slate-700 dark:text-slate-200">0</span></div>`;
+        }
+
+        const canvas = document.getElementById('insole-canvas');
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(40, canvas.clientWidth / 350, 0.1, 100);
+        camera.position.set(2.5, 3, 5);
+        camera.lookAt(0, 0, 0);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        dirLight.position.set(5, 10, 5); scene.add(dirLight);
+
+        const shape = new THREE.Shape();
+        shape.moveTo(0, 1.5); 
+        shape.bezierCurveTo(0.6, 1.5, 0.7, 0.5, 0.4, 0); 
+        shape.bezierCurveTo(0.2, -0.5, 0.5, -1.2, 0.3, -1.5); 
+        shape.bezierCurveTo(0, -1.6, -0.4, -1.6, -0.4, -1.5); 
+        shape.bezierCurveTo(-0.6, -1.2, -0.2, -0.5, -0.4, 0); 
+        shape.bezierCurveTo(-0.7, 0.5, -0.7, 1.5, 0, 1.5); 
+
+        const extrudeSettings = { depth: 0.15, bevelEnabled: true, bevelSegments: 4, steps: 2, bevelSize: 0.05, bevelThickness: 0.05 };
+        const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        geometry.center();
+
+        // Medical UI Style: Clean White polymer with high gloss
+        const material = new THREE.MeshPhysicalMaterial({ 
+            color: 0xf8fafc, 
+            metalness: 0.1, 
+            roughness: 0.2, 
+            clearcoat: 1.0, 
+            clearcoatRoughness: 0.1,
+            transparent: true,
+            opacity: 0.95
+        });
+        const insoleGroup = new THREE.Group();
+        const insoleMesh = new THREE.Mesh(geometry, material);
+        
+        // Add a subtle emerald wireframe overlay for the tech vibe
+        const wireframeMaterial = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.15 });
+        const wireframe = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), wireframeMaterial);
+        insoleMesh.add(wireframe);
+
+        insoleMesh.rotation.x = Math.PI / 2; 
+        insoleMesh.rotation.z = Math.PI; 
+        insoleGroup.add(insoleMesh);
+
+        scene.add(new THREE.GridHelper(10, 20, 0x10b981, 0x10b981).translateY(-1.0)); // Emerald grid
+        scene.add(insoleGroup);
+        renderer.setSize(canvas.clientWidth, 350, false);
+
+        let targetPitch=0, targetRoll=0;
+        function animate() {
+            requestAnimationFrame(animate);
+            insoleGroup.rotation.x += (-targetPitch * Math.PI/180 - insoleGroup.rotation.x) * 0.15;
+            insoleGroup.rotation.z += (targetRoll * Math.PI/180 - insoleGroup.rotation.z) * 0.15;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Recording State
+        let isRecording = false;
+        let csvData = [];
+        const csvHeader = "Timestamp_ms,Pitch,Roll,AccX,AccY,AccZ,GyroX,GyroY,GyroZ,FSR1,FSR2,FSR3,FSR4,FSR5,FSR6,FSR7,FSR8\n";
+        const btnManual = document.getElementById('btn-record-manual');
+        const btn1s = document.getElementById('btn-record-1s');
+        const btnDownload = document.getElementById('btn-download');
+
+        function startRecordingUI(btn, text) {
+            isRecording = true; csvData = []; btn.textContent = text;
+            
+            // Switch active button to red
+            btn.classList.remove('bg-slate-800', 'bg-purple-600', 'hover:bg-slate-700', 'hover:bg-purple-700');
+            btn.classList.add('bg-red-600', 'hover:bg-red-700', 'animate-pulse');
+            
+            btnDownload.disabled = true; 
+            btnDownload.classList.add('opacity-50', 'cursor-not-allowed');
+            btnDownload.classList.remove('bg-emerald-600', 'text-white', 'hover:bg-emerald-700', 'shadow-md');
+            btnDownload.classList.add('bg-emerald-100', 'text-emerald-800');
+        }
+
+        function stopRecordingUI() {
+            isRecording = false;
+            
+            // Reset manual button
+            btnManual.textContent = "Start Recording"; 
+            btnManual.classList.remove('bg-red-600', 'hover:bg-red-700', 'animate-pulse');
+            btnManual.classList.add('bg-slate-800', 'hover:bg-slate-700');
+            
+            // Reset 1s button
+            btn1s.textContent = "Record Strict 1s"; 
+            btn1s.classList.remove('bg-red-600', 'hover:bg-red-700', 'animate-pulse');
+            btn1s.classList.add('bg-purple-600', 'hover:bg-purple-700');
+            
+            // Enable download button with Emerald styling
+            btnDownload.disabled = false; 
+            btnDownload.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-emerald-100', 'text-emerald-800');
+            btnDownload.classList.add('bg-emerald-600', 'text-white', 'hover:bg-emerald-700', 'shadow-md');
+        }
+
+        btnManual.addEventListener('click', () => { isRecording ? stopRecordingUI() : startRecordingUI(btnManual, "Stop Recording"); });
+        btn1s.addEventListener('click', () => {
+            if (isRecording) return; 
+            startRecordingUI(btn1s, "Recording (1s)...");
+            setTimeout(() => { stopRecordingUI(); alert(`Diagnostic Complete.\nCaptured ${csvData.length} packets in 1 second.\n\nHardware Frequency: ${csvData.length} Hz`); }, 1000); 
+        });
+
+        btnDownload.addEventListener('click', () => {
+            const blob = new Blob([csvHeader + csvData.join("")], { type: 'text/csv' });
+            const link = document.createElement("a"); link.href = URL.createObjectURL(blob);
+            link.download = `greensense_data_${Date.now()}.csv`; link.click();
+        });
+
+        // BLE Handling
+        const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+        const CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+        let lastTimestamp = 0;
+
+        document.getElementById('btn-connect').addEventListener('click', async () => {
+            try {
+                const device = await navigator.bluetooth.requestDevice({ filters: [{ name: 'SmartInsole_BLE' }], optionalServices: [SERVICE_UUID] });
+                
+                document.getElementById('status-text').textContent = 'CONNECTING...';
+                document.getElementById('status-dot').className = 'w-2.5 h-2.5 rounded-full bg-yellow-500 animate-pulse';
+                
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                const characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+                
+                await characteristic.startNotifications();
+                characteristic.addEventListener('characteristicvaluechanged', handleNotifications);
+
+                document.getElementById('status-text').textContent = 'CONNECTED';
+                document.getElementById('status-text').className = 'text-xs font-bold text-emerald-600 uppercase tracking-wide';
+                document.getElementById('status-dot').className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]';
+                document.getElementById('btn-connect').classList.add('hidden');
+            } catch(e) { alert("BLE Error: " + e); }
+        });
+
+        function map(v,a,b,c,d){ return Math.min(d,Math.max(c,(v-a)*(d-c)/(b-a)+c)); }
+
+        function handleNotifications(event) {
+            const view = event.target.value;
+            
+            const ts = view.getUint32(0, true);
+            const p = view.getFloat32(4, true);
+            const r = view.getFloat32(8, true);
+            const ax = view.getInt16(12, true) / 16384.0;
+            const ay = view.getInt16(14, true) / 16384.0;
+            const az = view.getInt16(16, true) / 16384.0;
+            const gx = view.getInt16(18, true) / 131.0;
+            const gy = view.getInt16(20, true) / 131.0;
+            const gz = view.getInt16(22, true) / 131.0;
+
+            if(lastTimestamp !== 0) document.getElementById('ping-val').textContent = (ts - lastTimestamp) + " ms";
+            lastTimestamp = ts;
+
+            targetPitch = p; targetRoll = r;
+            document.getElementById('pitch-val').textContent = p.toFixed(1) + '°';
+            document.getElementById('roll-val').textContent = r.toFixed(1) + '°';
+            document.getElementById('acc-x').textContent=ax.toFixed(2); document.getElementById('bar-ax').style.width=map(ax,-2,2,0,100)+'%';
+            document.getElementById('acc-y').textContent=ay.toFixed(2); document.getElementById('bar-ay').style.width=map(ay,-2,2,0,100)+'%';
+            document.getElementById('acc-z').textContent=az.toFixed(2); document.getElementById('bar-az').style.width=map(az,-2,2,0,100)+'%';
+            document.getElementById('gyr-x').textContent=gx.toFixed(1); document.getElementById('bar-gx').style.width=map(gx,-250,250,0,100)+'%';
+            document.getElementById('gyr-y').textContent=gy.toFixed(1); document.getElementById('bar-gy').style.width=map(gy,-250,250,0,100)+'%';
+            document.getElementById('gyr-z').textContent=gz.toFixed(1); document.getElementById('bar-gz').style.width=map(gz,-250,250,0,100)+'%';
+
+            let fsrVals = [];
+            for(let i=0; i<8; i++) {
+                const ohms = view.getUint16(24 + (i * 2), true);
+                fsrVals.push(ohms === 65535 ? -1 : ohms); 
+                
+                const dot = document.getElementById(`dot-${i}`);
+                const valSpan = document.getElementById(`val-${i}`);
+
+                if (ohms === 65535) {
+                    valSpan.textContent = "----";
+                    dot.style.backgroundColor = ''; dot.style.borderColor = ''; dot.style.boxShadow = 'none'; dot.style.transform = 'scale(1)';
+                    dot.style.color = '';
+                } else {
+                    valSpan.textContent = ohms;
+                    let intensity = map(ohms, 20000, 500, 0, 1);
+                    intensity = Math.max(0, Math.min(1, intensity)); 
+                    // Using vibrant Red for pressure mapping (Medical standard)
+                    dot.style.backgroundColor = `rgba(239,68,68,${0.2 + intensity*0.8})`;
+                    dot.style.borderColor = `rgba(220,38,38,1)`;
+                    dot.style.boxShadow = `0 0 ${15*intensity}px rgba(239,68,68,${intensity})`;
+                    dot.style.transform = `scale(${1 + intensity*0.25})`;
+                    dot.style.color = '#ffffff';
+                }
+            }
+
+            if (isRecording) {
+                csvData.push(`${ts},${p.toFixed(2)},${r.toFixed(2)},${ax.toFixed(2)},${ay.toFixed(2)},${az.toFixed(2)},${gx.toFixed(2)},${gy.toFixed(2)},${gz.toFixed(2)},${fsrVals.join(",")}\n`);
+            }
+        }
+
+        // --- 4. DATA VIEWER (Plotly & PapaParse) ---
+        
+        document.getElementById('csvFileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            Papa.parse(file, { header: true, dynamicTyping: true, skipEmptyLines: true, complete: function(results) { processData(results.data); } });
+        });
+
+        document.getElementById('btn-load-latest').addEventListener('click', function() {
+            if (csvData.length === 0) {
+                alert("No data recorded yet. Go to 'Live Telemetry' and click 'Start Recording' first.");
+                return;
+            }
+            const rawCSVString = csvHeader + csvData.join("");
+            Papa.parse(rawCSVString, { header: true, dynamicTyping: true, skipEmptyLines: true, complete: function(results) { processData(results.data); } });
+        });
+
+        function processData(data) {
+            let deltas = [];
+            let sampleNumbers = [];
+            let fsrArrays = [[], [], [], [], [], [], [], []];
+
+            for (let i = 1; i < data.length; i++) {
+                if (!data[i] || !data[i-1]) continue;
+                
+                let current = data[i].Timestamp_ms;
+                let previous = data[i-1].Timestamp_ms;
+                
+                if (typeof current === 'number' && typeof previous === 'number') {
+                    deltas.push(current - previous);
+                    sampleNumbers.push(i);
+
+                    for (let j = 0; j < 8; j++) {
+                        let colName = 'FSR' + (j + 1);
+                        let val = data[i][colName];
+                        if (val !== undefined && val > 0 && val < 65535) {
+                            fsrArrays[j].push(val);
+                        } else {
+                            fsrArrays[j].push(null);
+                        }
+                    }
+                }
+            }
+
+            if (deltas.length === 0) {
+                document.getElementById('stats').innerText = "Error: No valid data found."; return;
+            }
+
+            let sum = deltas.reduce((a, b) => a + b, 0);
+            let mean = sum / deltas.length;
+            let stdDev = Math.sqrt(deltas.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / deltas.length);
+            
+            document.getElementById('stats').innerHTML = `<span class="text-slate-500">Integrity:</span> <span class="text-emerald-600 dark:text-emerald-400">${mean.toFixed(2)} ms</span> <span class="mx-4 text-slate-300">|</span> <span class="text-slate-500">Jitter:</span> <span class="text-emerald-600 dark:text-emerald-400">±${stdDev.toFixed(2)} ms</span>`;
+
+            plotLatency(sampleNumbers, deltas);
+            plotAllFSRs(sampleNumbers, fsrArrays);
+        }
+
+        function getChartColors() {
+            const isDark = document.documentElement.classList.contains('dark');
+            return {
+                bg: isDark ? '#0f172a' : '#ffffff',
+                text: isDark ? '#f8fafc' : '#1e293b',
+                grid: isDark ? '#334155' : '#e2e8f0',
+                primary: isDark ? '#10b981' : '#059669' // Emerald
+            };
+        }
+
+        function plotLatency(xData, yData) {
+            const colors = getChartColors();
+            let trace1 = { x: xData, y: yData, mode: 'lines+markers', name: 'Delta Time', line: {color: colors.primary, width: 1}, marker: {size: 3} };
+            let layout = {
+                title: { text: 'Bluetooth Latency (Hardware Interrupt Check)', font: {color: colors.text, size: 16} },
+                paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+                xaxis: {title: 'Sample Number', color: colors.text, gridcolor: colors.grid},
+                yaxis: {title: 'Delta Time (ms)', color: colors.text, gridcolor: colors.grid, range: [0, Math.max(...yData) + 5]},
+                margin: {t: 50, b: 50, l: 50, r: 20}
+            };
+            Plotly.newPlot('latencyChart', [trace1], layout, {responsive: true});
+        }
+
+        function plotAllFSRs(xData, fsrArrays) {
+            const colors = getChartColors();
+            // Distinct engineering colors for 8 traces so they are easy to read
+            const traceColors = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#8b5cf6'];
+            let traces = [];
+
+            for (let i = 0; i < 8; i++) {
+                traces.push({
+                    x: xData, y: fsrArrays[i],
+                    mode: 'lines+markers', name: 'CH ' + (i+1),
+                    connectgaps: false,
+                    line: {width: 2, color: traceColors[i]}, marker: {size: 3}
+                });
+            }
+
+            let layout = {
+                title: { text: 'Plantar Resistance (All 8 Channels)', font: {color: colors.text, size: 16} },
+                paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+                xaxis: {title: 'Sample Number', color: colors.text, gridcolor: colors.grid},
+                yaxis: {title: 'Resistance (Ohms)', color: colors.text, gridcolor: colors.grid, range: [0, 25000]},
+                margin: {t: 50, b: 50, l: 50, r: 20}
+            };
+            Plotly.newPlot('fsrChart', traces, layout, {responsive: true});
+        }
+    </script>
+</body>
+</html>
