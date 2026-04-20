@@ -235,7 +235,6 @@
         const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
         geometry.center();
 
-        // THE FIX: Changed to a sleek, dark Slate material that contrasts well in Light Mode
         const material = new THREE.MeshPhysicalMaterial({ 
             color: 0x334155,  // Dark Slate
             metalness: 0.3, 
@@ -248,7 +247,6 @@
         const insoleGroup = new THREE.Group();
         const insoleMesh = new THREE.Mesh(geometry, material);
         
-        // Emerald wireframe
         const wireframeMaterial = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.25 });
         const wireframe = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), wireframeMaterial);
         insoleMesh.add(wireframe);
@@ -281,10 +279,8 @@
         function startRecordingUI(btn, text) {
             isRecording = true; csvData = []; 
             
-            // THE FIX: Inject a flashing recording dot directly into the button text
             btn.innerHTML = `<span class="flex items-center justify-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>${text}</span>`;
             
-            // Force the button to turn bright Red
             btn.classList.remove('bg-slate-800', 'bg-purple-600', 'hover:bg-slate-700', 'hover:bg-purple-700', 'dark:bg-slate-700', 'dark:hover:bg-slate-600');
             btn.classList.add('bg-red-600', 'hover:bg-red-700');
             
@@ -297,17 +293,14 @@
         function stopRecordingUI() {
             isRecording = false;
             
-            // Reset manual button back to normal text and Slate color
             btnManual.innerHTML = "Start Recording"; 
             btnManual.classList.remove('bg-red-600', 'hover:bg-red-700');
             btnManual.classList.add('bg-slate-800', 'hover:bg-slate-700', 'dark:bg-slate-700', 'dark:hover:bg-slate-600');
             
-            // Reset 1s button back to normal text and Purple color
             btn1s.innerHTML = "Record Strict 1s"; 
             btn1s.classList.remove('bg-red-600', 'hover:bg-red-700');
             btn1s.classList.add('bg-purple-600', 'hover:bg-purple-700');
             
-            // Enable download button
             btnDownload.disabled = false; 
             btnDownload.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-emerald-100', 'text-emerald-800');
             btnDownload.classList.add('bg-emerald-600', 'text-white', 'hover:bg-emerald-700', 'shadow-md');
@@ -326,19 +319,50 @@
             link.download = `greensense_data_${Date.now()}.csv`; link.click();
         });
 
-        // BLE Handling
+        // BLE Handling & SAFETY WATCHDOG
         const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
         const CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+        
+        let bluetoothDevice = null;
         let lastTimestamp = 0;
+        let watchdogTimer = null; // The safety timer
+
+        // Called if connection is explicitly dropped OR if watchdog timer runs out
+        function handleDisconnection() {
+            console.log("BLE Connection Lost or Timeout!");
+            
+            document.getElementById('status-text').textContent = 'CONNECTION LOST';
+            document.getElementById('status-text').className = 'text-xs font-bold text-red-600 uppercase tracking-wide';
+            document.getElementById('status-dot').className = 'w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse';
+            
+            const btnConnect = document.getElementById('btn-connect');
+            btnConnect.classList.remove('hidden');
+            btnConnect.textContent = "Reconnect Device";
+            btnConnect.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            btnConnect.classList.add('bg-red-600', 'hover:bg-red-700'); // Turn button red to grab attention
+            
+            // Stop recording safely if it dropped mid-record
+            if (isRecording) stopRecordingUI();
+            
+            if(watchdogTimer) clearTimeout(watchdogTimer);
+        }
 
         document.getElementById('btn-connect').addEventListener('click', async () => {
             try {
-                const device = await navigator.bluetooth.requestDevice({ filters: [{ name: 'SmartInsole_BLE' }], optionalServices: [SERVICE_UUID] });
+                // Change button text in case it was a reconnect attempt
+                document.getElementById('btn-connect').textContent = "Pair Device";
+                document.getElementById('btn-connect').classList.remove('bg-red-600', 'hover:bg-red-700');
+                document.getElementById('btn-connect').classList.add('bg-blue-600', 'hover:bg-blue-700');
+
+                bluetoothDevice = await navigator.bluetooth.requestDevice({ filters: [{ name: 'SmartInsole_BLE' }], optionalServices: [SERVICE_UUID] });
                 
+                // Add explicit disconnect listener
+                bluetoothDevice.addEventListener('gattserverdisconnected', handleDisconnection);
+
                 document.getElementById('status-text').textContent = 'CONNECTING...';
                 document.getElementById('status-dot').className = 'w-2.5 h-2.5 rounded-full bg-yellow-500 animate-pulse';
                 
-                const server = await device.gatt.connect();
+                const server = await bluetoothDevice.gatt.connect();
                 const service = await server.getPrimaryService(SERVICE_UUID);
                 const characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
                 
@@ -349,12 +373,21 @@
                 document.getElementById('status-text').className = 'text-xs font-bold text-emerald-600 uppercase tracking-wide';
                 document.getElementById('status-dot').className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]';
                 document.getElementById('btn-connect').classList.add('hidden');
+                
+                // Start the initial watchdog timer
+                if(watchdogTimer) clearTimeout(watchdogTimer);
+                watchdogTimer = setTimeout(handleDisconnection, 2000);
+
             } catch(e) { alert("BLE Error: " + e); }
         });
 
         function map(v,a,b,c,d){ return Math.min(d,Math.max(c,(v-a)*(d-c)/(b-a)+c)); }
 
         function handleNotifications(event) {
+            // SAFETY WATCHDOG: Reset the 2-second timer every time a packet arrives
+            if(watchdogTimer) clearTimeout(watchdogTimer);
+            watchdogTimer = setTimeout(handleDisconnection, 2000);
+
             const view = event.target.value;
             
             const ts = view.getUint32(0, true);
@@ -473,7 +506,7 @@
                 bg: isDark ? '#0f172a' : '#ffffff',
                 text: isDark ? '#f8fafc' : '#1e293b',
                 grid: isDark ? '#334155' : '#e2e8f0',
-                primary: isDark ? '#10b981' : '#059669' // Emerald
+                primary: isDark ? '#10b981' : '#059669' 
             };
         }
 
