@@ -1,28 +1,12 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" class="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Insole - Biomechanics</title>
+    <title>GreenSense Telemetry</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        // --- CUSTOM COLOR PALETTE INJECTION ---
-        tailwind.config = { 
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        forest: '#1a6b4a',
-                        sage: '#6b9e7e',
-                        ivory: '#f5f5ef',
-                        charcoal: '#1c2821',
-                        // Derived dark mode equivalents to maintain the organic feel
-                        darkbg: '#111714',    // Deep, dark forest shadow for background
-                        darkcard: '#18211c'   // Slightly lighter shadow for elevated cards
-                    }
-                }
-            }
-        }
+        tailwind.config = { darkMode: 'class' }
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
@@ -31,29 +15,30 @@
     <style>
         .sensor-dot { transition: background-color 0.1s linear, box-shadow 0.1s linear, transform 0.1s; }
         #insole-canvas { width: 100% !important; height: 350px !important; border-radius: 12px; }
-        /* Themed custom scrollbar */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #6b9e7e; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
     </style>
 </head>
-<body class="bg-ivory text-charcoal dark:bg-darkbg dark:text-ivory min-h-screen font-sans transition-colors duration-300">
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200 min-h-screen font-sans transition-colors duration-300">
 
-    <nav class="border-b border-sage/20 bg-white/80 dark:bg-darkcard/80 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+    <nav class="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 sticky top-0 z-50 shadow-sm">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
-                <div class="flex items-center">
-                    <h1 class="text-2xl font-bold tracking-tight">Gait<span class="text-forest dark:text-sage">Sense</span></h1>
+                <div class="flex items-center gap-2">
+                    <svg class="w-7 h-7 text-emerald-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-4H5v-2h4V7h2v4h4v2h-4v4z"/></svg>
+                    <h1 class="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">Green<span class="text-emerald-500">Sense</span></h1>
                 </div>
                 <div class="flex items-center gap-4">
-                    <button id="tab-live" class="px-4 py-2 text-sm font-bold text-forest dark:text-sage border-b-2 border-forest dark:border-sage transition-colors">Live Telemetry</button>
-                    <button id="tab-viewer" class="px-4 py-2 text-sm font-medium text-charcoal/60 dark:text-ivory/60 hover:text-forest dark:hover:text-sage transition-colors">Data Analyzer</button>
+                    <button id="tab-live" class="px-4 py-2 text-sm font-bold text-emerald-600 border-b-2 border-emerald-500 transition-colors">Live Telemetry</button>
+                    <button id="tab-viewer" class="px-4 py-2 text-sm font-medium text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 transition-colors">Data Analyzer</button>
                     
-                    <div class="w-px h-6 bg-sage/30 mx-2"></div>
+                    <div class="w-px h-6 bg-slate-300 dark:bg-slate-700 mx-2"></div>
                     
-                    <button id="theme-toggle" class="p-2 rounded-full hover:bg-sage/20 transition-colors text-charcoal dark:text-ivory">
-                        <svg id="theme-icon-dark" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
-                        <svg id="theme-icon-light" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 2.32a1 1 0 011.415 0l.707.707a1 1 0 01-1.414 1.414l-.707-.707a1 1 0 010-1.414zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM14.22 15.465a1 1 0 010 1.414l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.22-1.465a1 1 0 01-1.415 0l-.707-.707a1 1 0 011.414-1.414l.707.707a1 1 0 010 1.414zM3 10a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1zM4.693 5.405a1 1 0 010-1.414l.707-.707a1 1 0 011.414 1.414l-.707.707a1 1 0 01-1.414 0zM10 5a5 5 0 100 10 5 5 0 000-10z" clip-rule="evenodd"></path></svg>
+                    <button id="theme-toggle" class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                        <svg id="theme-icon-dark" class="w-5 h-5 hidden text-slate-800" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                        <svg id="theme-icon-light" class="w-5 h-5 text-slate-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 2.32a1 1 0 011.415 0l.707.707a1 1 0 01-1.414 1.414l-.707-.707a1 1 0 010-1.414zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM14.22 15.465a1 1 0 010 1.414l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.22-1.465a1 1 0 01-1.415 0l-.707-.707a1 1 0 011.414-1.414l.707.707a1 1 0 010 1.414zM3 10a1 1 0 011-1h1a1 1 0 110 2H4a1 1 0 01-1-1zM4.693 5.405a1 1 0 010-1.414l.707-.707a1 1 0 011.414 1.414l-.707.707a1 1 0 01-1.414 0zM10 5a5 5 0 100 10 5 5 0 000-10z" clip-rule="evenodd"></path></svg>
                     </button>
                 </div>
             </div>
@@ -61,77 +46,78 @@
     </nav>
 
     <div id="view-live" class="p-4 md:p-8 block">
-        <header class="max-w-6xl mx-auto mb-8 flex justify-between items-end border-b border-sage/20 pb-4">
+        <header class="max-w-6xl mx-auto mb-8 flex justify-between items-end border-b border-slate-200 dark:border-slate-800 pb-4">
             <div>
-                <p class="text-charcoal/60 dark:text-ivory/60 text-sm mt-1">100Hz Real-Time Bluetooth Stream</p>
+                <p class="text-slate-500 text-sm mt-1 font-medium">Biodegradable Wearable Diagnostics | 100Hz Telemetry</p>
             </div>
             <div class="flex flex-col items-end gap-3">
                 <div class="flex items-center gap-4">
-                    <div class="flex items-center gap-2">
-                        <div id="status-dot" class="w-3 h-3 rounded-full bg-red-500"></div>
-                        <span id="status-text" class="text-sm font-medium text-red-600 dark:text-red-400">Disconnected</span>
+                    <div class="flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <div id="status-dot" class="w-2.5 h-2.5 rounded-full bg-slate-400"></div>
+                        <span id="status-text" class="text-xs font-bold text-slate-500 uppercase tracking-wide">Offline</span>
                     </div>
-                    <button id="btn-connect" class="px-6 py-2 bg-forest hover:bg-forest/90 text-ivory text-sm font-bold rounded shadow-md transition-colors">Pair Bluetooth</button>
+                    <button id="btn-connect" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg shadow-md transition-all active:scale-95">Pair Device</button>
                 </div>
                 <div class="flex gap-2">
-                    <button id="btn-record-manual" class="px-4 py-2 bg-forest hover:bg-forest/90 text-ivory text-sm font-bold rounded shadow transition-colors">Start Recording</button>
-                    <button id="btn-record-1s" class="px-4 py-2 bg-sage hover:bg-sage/90 text-white text-sm font-bold rounded shadow transition-colors">Record Strict 1s</button>
-                    <button id="btn-download" class="px-4 py-2 bg-charcoal/10 dark:bg-darkcard text-charcoal/40 dark:text-ivory/40 text-sm font-bold rounded shadow cursor-not-allowed transition-colors" disabled>Download CSV</button>
+                    <button id="btn-record-manual" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-sm font-bold rounded-lg shadow transition-colors disabled:opacity-50">Start Recording</button>
+                    <button id="btn-record-1s" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold rounded-lg shadow transition-colors disabled:opacity-50">Record Strict 1s</button>
+                    <button id="btn-download" class="px-4 py-2 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-500 text-sm font-bold rounded-lg cursor-not-allowed opacity-50 transition-colors" disabled>Download CSV</button>
                 </div>
             </div>
         </header>
 
-        <main class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <section class="lg:col-span-1 bg-white dark:bg-darkcard rounded-2xl p-6 border border-sage/20 shadow-xl">
-                <h2 class="text-xl font-semibold mb-6 flex items-center gap-2 text-forest dark:text-sage">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                    FSR Pressure Matrix
+        <main class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <section class="lg:col-span-1 bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+                <h2 class="text-lg font-bold mb-6 flex items-center gap-2 text-slate-800 dark:text-white">
+                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Plantar Pressure Matrix
                 </h2>
-                <div class="relative w-full max-w-[250px] mx-auto aspect-[1/2] bg-ivory dark:bg-darkbg rounded-[60px] border-4 border-sage/30 dark:border-sage/20 p-4 shadow-inner">
-                    <svg class="absolute inset-0 w-full h-full opacity-10 pointer-events-none text-forest dark:text-sage" viewBox="0 0 100 200" preserveAspectRatio="none">
+                
+                <div class="relative w-full max-w-[220px] mx-auto aspect-[1/2] bg-slate-50 dark:bg-slate-950 rounded-[60px] border-4 border-slate-100 dark:border-slate-800 p-4 shadow-inner">
+                    <svg class="absolute inset-0 w-full h-full opacity-5 pointer-events-none text-slate-900 dark:text-white" viewBox="0 0 100 200" preserveAspectRatio="none">
                         <path d="M 50 10 C 70 10, 85 30, 85 60 C 85 100, 70 120, 70 150 C 70 180, 60 190, 50 190 C 40 190, 30 180, 30 150 C 30 120, 15 100, 15 60 C 15 30, 30 10, 50 10 Z" fill="currentColor"/>
                     </svg>
-                    <div id="dot-0" class="sensor-dot absolute w-8 h-8 rounded-full bg-white dark:bg-darkcard border-2 border-sage/40 flex items-center justify-center text-xs font-bold top-[10%] right-[40%] transform translate-x-1/2">1</div>
-                    <div id="dot-1" class="sensor-dot absolute w-6 h-6 rounded-full bg-white dark:bg-darkcard border-2 border-sage/40 flex items-center justify-center text-[10px] font-bold top-[18%] left-[25%] transform -translate-x-1/2">2</div>
-                    <div id="dot-2" class="sensor-dot absolute w-8 h-8 rounded-full bg-white dark:bg-darkcard border-2 border-sage/40 flex items-center justify-center text-xs font-bold top-[30%] right-[50%] transform translate-x-1/2">3</div>
-                    <div id="dot-3" class="sensor-dot absolute w-7 h-7 rounded-full bg-white dark:bg-darkcard border-2 border-sage/40 flex items-center justify-center text-[10px] font-bold top-[35%] right-[22%] transform -translate-x-1/2">4</div>
-                    <div id="dot-4" class="sensor-dot absolute w-7 h-7 rounded-full bg-white dark:bg-darkcard border-2 border-sage/40 flex items-center justify-center text-xs font-bold top-[48%] right-[25%] transform translate-x-1/2">5</div>
-                    <div id="dot-5" class="sensor-dot absolute w-7 h-7 rounded-full bg-white dark:bg-darkcard border-2 border-sage/40 flex items-center justify-center text-xs font-bold top-[70%] left-[35%] transform translate-x-1/2">6</div>
-                    <div id="dot-6" class="sensor-dot absolute w-7 h-7 rounded-full bg-white dark:bg-darkcard border-2 border-sage/40 flex items-center justify-center text-xs font-bold top-[73%] right-[35%] transform -translate-x-1/2">7</div>
-                    <div id="dot-7" class="sensor-dot absolute w-8 h-8 rounded-full bg-white dark:bg-darkcard border-2 border-sage/40 flex items-center justify-center text-xs font-bold top-[82%] right-[42%] transform -translate-x-1/2">8</div>
+                    <div id="dot-0" class="sensor-dot absolute w-8 h-8 rounded-full bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-600 flex items-center justify-center text-xs font-bold top-[10%] right-[40%] transform translate-x-1/2 text-slate-400">1</div>
+                    <div id="dot-1" class="sensor-dot absolute w-6 h-6 rounded-full bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-600 flex items-center justify-center text-[10px] font-bold top-[18%] left-[25%] transform -translate-x-1/2 text-slate-400">2</div>
+                    <div id="dot-2" class="sensor-dot absolute w-8 h-8 rounded-full bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-600 flex items-center justify-center text-xs font-bold top-[30%] right-[50%] transform translate-x-1/2 text-slate-400">3</div>
+                    <div id="dot-3" class="sensor-dot absolute w-7 h-7 rounded-full bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-600 flex items-center justify-center text-[10px] font-bold top-[35%] right-[22%] transform -translate-x-1/2 text-slate-400">4</div>
+                    <div id="dot-4" class="sensor-dot absolute w-7 h-7 rounded-full bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-600 flex items-center justify-center text-xs font-bold top-[48%] right-[25%] transform translate-x-1/2 text-slate-400">5</div>
+                    <div id="dot-5" class="sensor-dot absolute w-7 h-7 rounded-full bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-600 flex items-center justify-center text-xs font-bold top-[70%] left-[35%] transform translate-x-1/2 text-slate-400">6</div>
+                    <div id="dot-6" class="sensor-dot absolute w-7 h-7 rounded-full bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-600 flex items-center justify-center text-xs font-bold top-[73%] right-[35%] transform -translate-x-1/2 text-slate-400">7</div>
+                    <div id="dot-7" class="sensor-dot absolute w-8 h-8 rounded-full bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-600 flex items-center justify-center text-xs font-bold top-[82%] right-[42%] transform -translate-x-1/2 text-slate-400">8</div>
                 </div>
                 <div class="mt-6 grid grid-cols-2 gap-2 text-sm" id="fsr-values"></div>
             </section>
 
-            <section class="lg:col-span-2 space-y-8">
-                <div class="bg-white dark:bg-darkcard rounded-2xl p-6 border border-sage/20 shadow-xl relative overflow-hidden">
+            <section class="lg:col-span-2 space-y-6">
+                <div class="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 relative overflow-hidden">
                     <div class="absolute top-6 right-6 font-mono text-sm text-right space-y-1 z-10">
-                        <div class="bg-ivory/80 dark:bg-darkbg/80 px-3 py-1 rounded border border-sage/20 backdrop-blur-sm"><span class="text-charcoal/60 dark:text-ivory/60">Ping: &nbsp;</span><span id="ping-val" class="text-sage font-bold">0 ms</span></div>
-                        <div class="bg-ivory/80 dark:bg-darkbg/80 px-3 py-1 rounded border border-sage/20 backdrop-blur-sm"><span class="text-charcoal/60 dark:text-ivory/60">Pitch: </span><span id="pitch-val" class="text-forest dark:text-sage font-bold">0.0°</span></div>
-                        <div class="bg-ivory/80 dark:bg-darkbg/80 px-3 py-1 rounded border border-sage/20 backdrop-blur-sm"><span class="text-charcoal/60 dark:text-ivory/60">Roll: &nbsp;</span><span id="roll-val"  class="text-forest dark:text-sage font-bold">0.0°</span></div>
+                        <div class="bg-slate-50/90 dark:bg-slate-950/90 px-3 py-1 rounded-md border border-slate-200 dark:border-slate-700 backdrop-blur-sm shadow-sm"><span class="text-slate-400">Ping: &nbsp;</span><span id="ping-val" class="text-emerald-500 font-bold">0 ms</span></div>
+                        <div class="bg-slate-50/90 dark:bg-slate-950/90 px-3 py-1 rounded-md border border-slate-200 dark:border-slate-700 backdrop-blur-sm shadow-sm"><span class="text-slate-400">Pitch: </span><span id="pitch-val" class="text-slate-800 dark:text-white font-bold">0.0°</span></div>
+                        <div class="bg-slate-50/90 dark:bg-slate-950/90 px-3 py-1 rounded-md border border-slate-200 dark:border-slate-700 backdrop-blur-sm shadow-sm"><span class="text-slate-400">Roll: &nbsp;</span><span id="roll-val"  class="text-slate-800 dark:text-white font-bold">0.0°</span></div>
                     </div>
-                    <h2 class="text-xl font-semibold mb-2 flex items-center gap-2 text-forest dark:text-sage">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"></path></svg>
-                        Smooth 3D Orientation
+                    <h2 class="text-lg font-bold mb-2 flex items-center gap-2 text-slate-800 dark:text-white">
+                        <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"></path></svg>
+                        3D Spatial Orientation
                     </h2>
                     <canvas id="insole-canvas"></canvas>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div class="bg-white dark:bg-darkcard rounded-2xl p-6 border border-sage/20 shadow-xl">
-                        <h3 class="text-lg font-medium mb-4 text-charcoal dark:text-ivory border-b border-sage/20 pb-2">Accelerometer (G)</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+                        <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 dark:border-slate-800 pb-2">Accelerometer (G)</h3>
                         <div class="space-y-4">
-                            <div><div class="flex justify-between mb-1"><span class="text-charcoal/60 dark:text-ivory/60 font-mono">Acc_X</span><span id="acc-x" class="font-mono font-bold">0.00</span></div><div class="w-full bg-ivory dark:bg-darkbg rounded-full h-2"><div id="bar-ax" class="bg-forest h-2 rounded-full" style="width:50%"></div></div></div>
-                            <div><div class="flex justify-between mb-1"><span class="text-charcoal/60 dark:text-ivory/60 font-mono">Acc_Y</span><span id="acc-y" class="font-mono font-bold">0.00</span></div><div class="w-full bg-ivory dark:bg-darkbg rounded-full h-2"><div id="bar-ay" class="bg-sage h-2 rounded-full" style="width:50%"></div></div></div>
-                            <div><div class="flex justify-between mb-1"><span class="text-charcoal/60 dark:text-ivory/60 font-mono">Acc_Z</span><span id="acc-z" class="font-mono font-bold">0.00</span></div><div class="w-full bg-ivory dark:bg-darkbg rounded-full h-2"><div id="bar-az" class="bg-forest/50 dark:bg-sage/50 h-2 rounded-full" style="width:50%"></div></div></div>
+                            <div><div class="flex justify-between mb-1"><span class="text-slate-500 font-mono text-sm">Acc_X</span><span id="acc-x" class="font-mono font-bold">0.00</span></div><div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2"><div id="bar-ax" class="bg-red-500 h-2 rounded-full" style="width:50%"></div></div></div>
+                            <div><div class="flex justify-between mb-1"><span class="text-slate-500 font-mono text-sm">Acc_Y</span><span id="acc-y" class="font-mono font-bold">0.00</span></div><div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2"><div id="bar-ay" class="bg-green-500 h-2 rounded-full" style="width:50%"></div></div></div>
+                            <div><div class="flex justify-between mb-1"><span class="text-slate-500 font-mono text-sm">Acc_Z</span><span id="acc-z" class="font-mono font-bold">0.00</span></div><div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2"><div id="bar-az" class="bg-blue-500 h-2 rounded-full" style="width:50%"></div></div></div>
                         </div>
                     </div>
-                    <div class="bg-white dark:bg-darkcard rounded-2xl p-6 border border-sage/20 shadow-xl">
-                        <h3 class="text-lg font-medium mb-4 text-charcoal dark:text-ivory border-b border-sage/20 pb-2">Gyroscope (deg/s)</h3>
+                    <div class="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+                        <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 dark:border-slate-800 pb-2">Gyroscope (deg/s)</h3>
                         <div class="space-y-4">
-                            <div><div class="flex justify-between mb-1"><span class="text-charcoal/60 dark:text-ivory/60 font-mono">Gyr_X</span><span id="gyr-x" class="font-mono font-bold">0.00</span></div><div class="w-full bg-ivory dark:bg-darkbg rounded-full h-2"><div id="bar-gx" class="bg-forest h-2 rounded-full" style="width:50%"></div></div></div>
-                            <div><div class="flex justify-between mb-1"><span class="text-charcoal/60 dark:text-ivory/60 font-mono">Gyr_Y</span><span id="gyr-y" class="font-mono font-bold">0.00</span></div><div class="w-full bg-ivory dark:bg-darkbg rounded-full h-2"><div id="bar-gy" class="bg-sage h-2 rounded-full" style="width:50%"></div></div></div>
-                            <div><div class="flex justify-between mb-1"><span class="text-charcoal/60 dark:text-ivory/60 font-mono">Gyr_Z</span><span id="gyr-z" class="font-mono font-bold">0.00</span></div><div class="w-full bg-ivory dark:bg-darkbg rounded-full h-2"><div id="bar-gz" class="bg-forest/50 dark:bg-sage/50 h-2 rounded-full" style="width:50%"></div></div></div>
+                            <div><div class="flex justify-between mb-1"><span class="text-slate-500 font-mono text-sm">Gyr_X</span><span id="gyr-x" class="font-mono font-bold">0.00</span></div><div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2"><div id="bar-gx" class="bg-red-400 h-2 rounded-full" style="width:50%"></div></div></div>
+                            <div><div class="flex justify-between mb-1"><span class="text-slate-500 font-mono text-sm">Gyr_Y</span><span id="gyr-y" class="font-mono font-bold">0.00</span></div><div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2"><div id="bar-gy" class="bg-green-400 h-2 rounded-full" style="width:50%"></div></div></div>
+                            <div><div class="flex justify-between mb-1"><span class="text-slate-500 font-mono text-sm">Gyr_Z</span><span id="gyr-z" class="font-mono font-bold">0.00</span></div><div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2"><div id="bar-gz" class="bg-blue-400 h-2 rounded-full" style="width:50%"></div></div></div>
                         </div>
                     </div>
                 </div>
@@ -140,30 +126,30 @@
     </div>
 
     <div id="view-viewer" class="p-4 md:p-8 hidden">
-        <header class="max-w-6xl mx-auto mb-8 flex justify-between items-end border-b border-sage/20 pb-4">
+        <header class="max-w-6xl mx-auto mb-8 flex justify-between items-end border-b border-slate-200 dark:border-slate-800 pb-4">
             <div>
-                <h2 class="text-2xl font-bold">CSV Analyzer</h2>
-                <p class="text-charcoal/60 dark:text-ivory/60 text-sm mt-1">Review latency jitter and FSR pressure curves.</p>
+                <h2 class="text-2xl font-bold">Data Analyzer</h2>
+                <p class="text-slate-500 text-sm mt-1">Review diagnostic curves and latency.</p>
             </div>
             <div class="flex gap-4">
                 <input type="file" id="csvFileInput" accept=".csv" class="hidden" />
-                <label for="csvFileInput" class="px-6 py-2 border-2 border-sage/40 hover:bg-sage/10 text-forest dark:text-sage text-sm font-bold rounded cursor-pointer transition-colors">
+                <label for="csvFileInput" class="px-6 py-2 border-2 border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-sm font-bold rounded-lg cursor-pointer transition-colors">
                     Upload CSV
                 </label>
-                <button id="btn-load-latest" class="px-6 py-2 bg-sage hover:bg-sage/80 text-white text-sm font-bold rounded shadow transition-colors">
+                <button id="btn-load-latest" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow transition-colors">
                     Load Latest Recording
                 </button>
             </div>
         </header>
 
-        <main class="max-w-6xl mx-auto space-y-8">
-            <div id="stats" class="text-lg font-bold text-forest dark:text-sage text-center"></div>
+        <main class="max-w-6xl mx-auto space-y-6">
+            <div id="stats" class="text-lg font-bold text-slate-800 dark:text-white text-center bg-white dark:bg-slate-900 py-3 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800">No data loaded</div>
 
-            <div class="bg-white dark:bg-darkcard p-4 rounded-xl shadow border border-sage/20">
+            <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                 <div id="latencyChart" class="w-full h-80"></div>
             </div>
 
-            <div class="bg-white dark:bg-darkcard p-4 rounded-xl shadow border border-sage/20">
+            <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                 <div id="fsrChart" class="w-full h-[500px]"></div>
             </div>
         </main>
@@ -193,7 +179,7 @@
                 document.documentElement.classList.add('dark');
                 localStorage.setItem('color-theme', 'dark');
             }
-            window.dispatchEvent(new Event('resize')); // Redraw Plotly graphs on theme change
+            window.dispatchEvent(new Event('resize')); 
         });
 
         // --- 2. TAB NAVIGATION LOGIC ---
@@ -206,292 +192,8 @@
             if (activeTab === 'live') {
                 viewLive.classList.remove('hidden');
                 viewViewer.classList.add('hidden');
-                tabLive.className = "px-4 py-2 text-sm font-bold text-forest dark:text-sage border-b-2 border-forest dark:border-sage transition-colors";
-                tabViewer.className = "px-4 py-2 text-sm font-medium text-charcoal/60 dark:text-ivory/60 hover:text-forest dark:hover:text-sage transition-colors";
+                tabLive.className = "px-4 py-2 text-sm font-bold text-emerald-600 border-b-2 border-emerald-500 transition-colors";
+                tabViewer.className = "px-4 py-2 text-sm font-medium text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 transition-colors";
             } else {
                 viewLive.classList.add('hidden');
-                viewViewer.classList.remove('hidden');
-                tabViewer.className = "px-4 py-2 text-sm font-bold text-forest dark:text-sage border-b-2 border-forest dark:border-sage transition-colors";
-                tabLive.className = "px-4 py-2 text-sm font-medium text-charcoal/60 dark:text-ivory/60 hover:text-forest dark:hover:text-sage transition-colors";
-                window.dispatchEvent(new Event('resize')); 
-            }
-        }
-        tabLive.addEventListener('click', () => switchTab('live'));
-        tabViewer.addEventListener('click', () => switchTab('viewer'));
-
-        // --- 3. LIVE DASHBOARD (Three.js & BLE) ---
-        const fsrContainer = document.getElementById('fsr-values');
-        for(let i=0; i<8; i++){
-            fsrContainer.innerHTML += `<div class="bg-ivory dark:bg-darkbg p-2 rounded flex justify-between border border-sage/20"><span class="text-charcoal/60 dark:text-ivory/60">CH${i+1}</span><span id="val-${i}" class="font-mono font-bold text-forest dark:text-sage">0</span></div>`;
-        }
-
-        const canvas = document.getElementById('insole-canvas');
-        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-        renderer.setPixelRatio(window.devicePixelRatio);
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(40, canvas.clientWidth / 350, 0.1, 100);
-        camera.position.set(2.5, 3, 5);
-        camera.lookAt(0, 0, 0);
-
-        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-        dirLight.position.set(5, 10, 5); scene.add(dirLight);
-
-        const shape = new THREE.Shape();
-        shape.moveTo(0, 1.5); 
-        shape.bezierCurveTo(0.6, 1.5, 0.7, 0.5, 0.4, 0); 
-        shape.bezierCurveTo(0.2, -0.5, 0.5, -1.2, 0.3, -1.5); 
-        shape.bezierCurveTo(0, -1.6, -0.4, -1.6, -0.4, -1.5); 
-        shape.bezierCurveTo(-0.6, -1.2, -0.2, -0.5, -0.4, 0); 
-        shape.bezierCurveTo(-0.7, 0.5, -0.7, 1.5, 0, 1.5); 
-
-        const extrudeSettings = { depth: 0.15, bevelEnabled: true, bevelSegments: 4, steps: 2, bevelSize: 0.05, bevelThickness: 0.05 };
-        const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-        geometry.center();
-
-        // Updated Material to match "Deep Forest Green" with a soft, organic look
-        const material = new THREE.MeshPhysicalMaterial({ color: 0x1a6b4a, metalness: 0.1, roughness: 0.4, clearcoat: 0.5, clearcoatRoughness: 0.5 });
-        const insoleGroup = new THREE.Group();
-        const insoleMesh = new THREE.Mesh(geometry, material);
-        
-        insoleMesh.rotation.x = Math.PI / 2; 
-        insoleMesh.rotation.z = Math.PI; // Toe facing backward
-        insoleGroup.add(insoleMesh);
-
-        // Updated Grid to match Sage
-        scene.add(new THREE.GridHelper(10, 20, 0x6b9e7e, 0x6b9e7e).translateY(-1.0));
-        scene.add(insoleGroup);
-        renderer.setSize(canvas.clientWidth, 350, false);
-
-        let targetPitch=0, targetRoll=0;
-        function animate() {
-            requestAnimationFrame(animate);
-            insoleGroup.rotation.x += (-targetPitch * Math.PI/180 - insoleGroup.rotation.x) * 0.15;
-            insoleGroup.rotation.z += (targetRoll * Math.PI/180 - insoleGroup.rotation.z) * 0.15;
-            renderer.render(scene, camera);
-        }
-        animate();
-
-        // Recording State
-        let isRecording = false;
-        let csvData = [];
-        const csvHeader = "Timestamp_ms,Pitch,Roll,AccX,AccY,AccZ,GyroX,GyroY,GyroZ,FSR1,FSR2,FSR3,FSR4,FSR5,FSR6,FSR7,FSR8\n";
-        const btnManual = document.getElementById('btn-record-manual');
-        const btn1s = document.getElementById('btn-record-1s');
-        const btnDownload = document.getElementById('btn-download');
-
-        function startRecordingUI(btn, text) {
-            isRecording = true; csvData = []; btn.textContent = text;
-            btn.classList.replace('bg-forest', 'bg-red-600'); btn.classList.replace('bg-sage', 'bg-red-600');
-            btnDownload.disabled = true; btnDownload.classList.replace('bg-forest', 'bg-charcoal/10'); btnDownload.classList.replace('dark:bg-sage', 'dark:bg-darkcard');
-        }
-
-        function stopRecordingUI() {
-            isRecording = false;
-            btnManual.textContent = "Start Recording"; btnManual.classList.replace('bg-red-600', 'bg-forest');
-            btn1s.textContent = "Record Strict 1s"; btn1s.classList.replace('bg-red-600', 'bg-sage');
-            btnDownload.disabled = false; btnDownload.classList.replace('bg-charcoal/10', 'bg-forest');
-            btnDownload.classList.replace('text-charcoal/40', 'text-ivory');
-            btnDownload.classList.replace('dark:bg-darkcard', 'dark:bg-sage');
-            btnDownload.classList.replace('dark:text-ivory/40', 'dark:text-darkbg');
-            btnDownload.classList.replace('cursor-not-allowed', 'cursor-pointer');
-        }
-
-        btnManual.addEventListener('click', () => { isRecording ? stopRecordingUI() : startRecordingUI(btnManual, "Stop Recording"); });
-        btn1s.addEventListener('click', () => {
-            if (isRecording) return; 
-            startRecordingUI(btn1s, "Recording (1s)...");
-            setTimeout(() => { stopRecordingUI(); alert(`Captured ${csvData.length} packets in 1 second.\nSpeed: ${csvData.length} Hz`); }, 1000); 
-        });
-
-        btnDownload.addEventListener('click', () => {
-            const blob = new Blob([csvHeader + csvData.join("")], { type: 'text/csv' });
-            const link = document.createElement("a"); link.href = URL.createObjectURL(blob);
-            link.download = `gait_data_${Date.now()}.csv`; link.click();
-        });
-
-        // BLE Handling
-        const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
-        const CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
-        let lastTimestamp = 0;
-
-        document.getElementById('btn-connect').addEventListener('click', async () => {
-            try {
-                const device = await navigator.bluetooth.requestDevice({ filters: [{ name: 'SmartInsole_BLE' }], optionalServices: [SERVICE_UUID] });
-                document.getElementById('status-text').textContent = 'Connecting...';
-                const server = await device.gatt.connect();
-                const service = await server.getPrimaryService(SERVICE_UUID);
-                const characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
-                
-                await characteristic.startNotifications();
-                characteristic.addEventListener('characteristicvaluechanged', handleNotifications);
-
-                document.getElementById('status-text').textContent = 'Connected (BLE)';
-                document.getElementById('status-text').className = 'text-sm font-medium text-forest dark:text-sage';
-                document.getElementById('status-dot').className = 'w-3 h-3 rounded-full bg-forest dark:bg-sage';
-                document.getElementById('btn-connect').classList.add('hidden');
-            } catch(e) { alert("BLE Error: " + e); }
-        });
-
-        function map(v,a,b,c,d){ return Math.min(d,Math.max(c,(v-a)*(d-c)/(b-a)+c)); }
-
-        function handleNotifications(event) {
-            const view = event.target.value;
-            
-            const ts = view.getUint32(0, true);
-            const p = view.getFloat32(4, true);
-            const r = view.getFloat32(8, true);
-            const ax = view.getInt16(12, true) / 16384.0;
-            const ay = view.getInt16(14, true) / 16384.0;
-            const az = view.getInt16(16, true) / 16384.0;
-            const gx = view.getInt16(18, true) / 131.0;
-            const gy = view.getInt16(20, true) / 131.0;
-            const gz = view.getInt16(22, true) / 131.0;
-
-            if(lastTimestamp !== 0) document.getElementById('ping-val').textContent = (ts - lastTimestamp) + " ms";
-            lastTimestamp = ts;
-
-            targetPitch = p; targetRoll = r;
-            document.getElementById('pitch-val').textContent = p.toFixed(1) + '°';
-            document.getElementById('roll-val').textContent = r.toFixed(1) + '°';
-            document.getElementById('acc-x').textContent=ax.toFixed(2); document.getElementById('bar-ax').style.width=map(ax,-2,2,0,100)+'%';
-            document.getElementById('acc-y').textContent=ay.toFixed(2); document.getElementById('bar-ay').style.width=map(ay,-2,2,0,100)+'%';
-            document.getElementById('acc-z').textContent=az.toFixed(2); document.getElementById('bar-az').style.width=map(az,-2,2,0,100)+'%';
-            document.getElementById('gyr-x').textContent=gx.toFixed(1); document.getElementById('bar-gx').style.width=map(gx,-250,250,0,100)+'%';
-            document.getElementById('gyr-y').textContent=gy.toFixed(1); document.getElementById('bar-gy').style.width=map(gy,-250,250,0,100)+'%';
-            document.getElementById('gyr-z').textContent=gz.toFixed(1); document.getElementById('bar-gz').style.width=map(gz,-250,250,0,100)+'%';
-
-            let fsrVals = [];
-            for(let i=0; i<8; i++) {
-                const ohms = view.getUint16(24 + (i * 2), true);
-                fsrVals.push(ohms === 65535 ? -1 : ohms); 
-                
-                const dot = document.getElementById(`dot-${i}`);
-                const valSpan = document.getElementById(`val-${i}`);
-
-                if (ohms === 65535) {
-                    valSpan.textContent = "----";
-                    dot.style.backgroundColor = ''; dot.style.borderColor = ''; dot.style.boxShadow = 'none'; dot.style.transform = 'scale(1)';
-                } else {
-                    valSpan.textContent = ohms;
-                    // Note: Kept the active pressure red because heatmaps functionally need to show "heat"
-                    let intensity = map(ohms, 20000, 500, 0, 1);
-                    intensity = Math.max(0, Math.min(1, intensity)); 
-                    dot.style.backgroundColor = `rgba(239,68,68,${0.3 + intensity*0.7})`;
-                    dot.style.borderColor = `rgba(248,113,113,1)`;
-                    dot.style.boxShadow = `0 0 ${15*intensity}px rgba(239,68,68,${intensity})`;
-                    dot.style.transform = `scale(${1 + intensity*0.25})`;
-                }
-            }
-
-            if (isRecording) {
-                csvData.push(`${ts},${p.toFixed(2)},${r.toFixed(2)},${ax.toFixed(2)},${ay.toFixed(2)},${az.toFixed(2)},${gx.toFixed(2)},${gy.toFixed(2)},${gz.toFixed(2)},${fsrVals.join(",")}\n`);
-            }
-        }
-
-        // --- 4. DATA VIEWER (Plotly & PapaParse) ---
-        
-        document.getElementById('csvFileInput').addEventListener('change', function(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            Papa.parse(file, { header: true, dynamicTyping: true, skipEmptyLines: true, complete: function(results) { processData(results.data); } });
-        });
-
-        document.getElementById('btn-load-latest').addEventListener('click', function() {
-            if (csvData.length === 0) {
-                alert("No data recorded yet. Go to 'Live Telemetry' and click 'Start Recording' first.");
-                return;
-            }
-            const rawCSVString = csvHeader + csvData.join("");
-            Papa.parse(rawCSVString, { header: true, dynamicTyping: true, skipEmptyLines: true, complete: function(results) { processData(results.data); } });
-        });
-
-        function processData(data) {
-            let deltas = [];
-            let sampleNumbers = [];
-            let fsrArrays = [[], [], [], [], [], [], [], []];
-
-            for (let i = 1; i < data.length; i++) {
-                if (!data[i] || !data[i-1]) continue;
-                
-                let current = data[i].Timestamp_ms;
-                let previous = data[i-1].Timestamp_ms;
-                
-                if (typeof current === 'number' && typeof previous === 'number') {
-                    deltas.push(current - previous);
-                    sampleNumbers.push(i);
-
-                    for (let j = 0; j < 8; j++) {
-                        let colName = 'FSR' + (j + 1);
-                        let val = data[i][colName];
-                        if (val !== undefined && val > 0 && val < 65535) {
-                            fsrArrays[j].push(val);
-                        } else {
-                            fsrArrays[j].push(null);
-                        }
-                    }
-                }
-            }
-
-            if (deltas.length === 0) {
-                document.getElementById('stats').innerText = "Error: No valid data found."; return;
-            }
-
-            let sum = deltas.reduce((a, b) => a + b, 0);
-            let mean = sum / deltas.length;
-            let stdDev = Math.sqrt(deltas.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / deltas.length);
-            
-            document.getElementById('stats').innerText = `Timing Integrity: ${mean.toFixed(2)} ms avg | Jitter (Std Dev): ${stdDev.toFixed(2)} ms`;
-
-            plotLatency(sampleNumbers, deltas);
-            plotAllFSRs(sampleNumbers, fsrArrays);
-        }
-
-        function getChartColors() {
-            const isDark = document.documentElement.classList.contains('dark');
-            return {
-                bg: isDark ? '#18211c' : '#ffffff',
-                text: isDark ? '#f5f5ef' : '#1c2821',
-                grid: isDark ? '#6b9e7e40' : '#6b9e7e40', // Sage at 25% opacity
-                primary: isDark ? '#6b9e7e' : '#1a6b4a'
-            };
-        }
-
-        function plotLatency(xData, yData) {
-            const colors = getChartColors();
-            let trace1 = { x: xData, y: yData, mode: 'lines+markers', name: 'Delta Time', line: {color: colors.primary, width: 1}, marker: {size: 3} };
-            let layout = {
-                title: { text: 'Bluetooth Latency Jitter', font: {color: colors.text} },
-                paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-                xaxis: {title: 'Sample Number', color: colors.text, gridcolor: colors.grid},
-                yaxis: {title: 'Delta Time (ms)', color: colors.text, gridcolor: colors.grid, range: [0, Math.max(...yData) + 5]}
-            };
-            Plotly.newPlot('latencyChart', [trace1], layout, {responsive: true});
-        }
-
-        function plotAllFSRs(xData, fsrArrays) {
-            const colors = getChartColors();
-            // Using a nature/heat inspired palette for the 8 traces so they stand out from each other
-            const traceColors = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#1a6b4a', '#06b6d4', '#6b9e7e', '#8b5cf6'];
-            let traces = [];
-
-            for (let i = 0; i < 8; i++) {
-                traces.push({
-                    x: xData, y: fsrArrays[i],
-                    mode: 'lines+markers', name: 'CH ' + (i+1),
-                    connectgaps: false,
-                    line: {width: 2, color: traceColors[i]}, marker: {size: 3}
-                });
-            }
-
-            let layout = {
-                title: { text: 'Biomechanics: Resistance Drop (8 Channels)', font: {color: colors.text} },
-                paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-                xaxis: {title: 'Sample Number', color: colors.text, gridcolor: colors.grid},
-                yaxis: {title: 'Resistance (Ohms)', color: colors.text, gridcolor: colors.grid, range: [0, 25000]}
-            };
-            Plotly.newPlot('fsrChart', traces, layout, {responsive: true});
-        }
-    </script>
-</body>
-</html>
+                viewViewer.classList.remove
