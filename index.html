@@ -219,8 +219,8 @@
         camera.position.set(2.5, 3, 5);
         camera.lookAt(0, 0, 0);
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
         dirLight.position.set(5, 10, 5); scene.add(dirLight);
 
         const shape = new THREE.Shape();
@@ -235,21 +235,21 @@
         const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
         geometry.center();
 
-        // Medical UI Style: Clean White polymer with high gloss
+        // THE FIX: Changed to a sleek, dark Slate material that contrasts well in Light Mode
         const material = new THREE.MeshPhysicalMaterial({ 
-            color: 0xf8fafc, 
-            metalness: 0.1, 
-            roughness: 0.2, 
-            clearcoat: 1.0, 
-            clearcoatRoughness: 0.1,
+            color: 0x334155,  // Dark Slate
+            metalness: 0.3, 
+            roughness: 0.4, 
+            clearcoat: 0.8, 
+            clearcoatRoughness: 0.2,
             transparent: true,
-            opacity: 0.95
+            opacity: 0.85
         });
         const insoleGroup = new THREE.Group();
         const insoleMesh = new THREE.Mesh(geometry, material);
         
-        // Add a subtle emerald wireframe overlay for the tech vibe
-        const wireframeMaterial = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.15 });
+        // Emerald wireframe
+        const wireframeMaterial = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.25 });
         const wireframe = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), wireframeMaterial);
         insoleMesh.add(wireframe);
 
@@ -257,7 +257,7 @@
         insoleMesh.rotation.z = Math.PI; 
         insoleGroup.add(insoleMesh);
 
-        scene.add(new THREE.GridHelper(10, 20, 0x10b981, 0x10b981).translateY(-1.0)); // Emerald grid
+        scene.add(new THREE.GridHelper(10, 20, 0x10b981, 0x10b981).translateY(-1.0));
         scene.add(insoleGroup);
         renderer.setSize(canvas.clientWidth, 350, false);
 
@@ -279,11 +279,14 @@
         const btnDownload = document.getElementById('btn-download');
 
         function startRecordingUI(btn, text) {
-            isRecording = true; csvData = []; btn.textContent = text;
+            isRecording = true; csvData = []; 
             
-            // Switch active button to red
-            btn.classList.remove('bg-slate-800', 'bg-purple-600', 'hover:bg-slate-700', 'hover:bg-purple-700');
-            btn.classList.add('bg-red-600', 'hover:bg-red-700', 'animate-pulse');
+            // THE FIX: Inject a flashing recording dot directly into the button text
+            btn.innerHTML = `<span class="flex items-center justify-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>${text}</span>`;
+            
+            // Force the button to turn bright Red
+            btn.classList.remove('bg-slate-800', 'bg-purple-600', 'hover:bg-slate-700', 'hover:bg-purple-700', 'dark:bg-slate-700', 'dark:hover:bg-slate-600');
+            btn.classList.add('bg-red-600', 'hover:bg-red-700');
             
             btnDownload.disabled = true; 
             btnDownload.classList.add('opacity-50', 'cursor-not-allowed');
@@ -294,26 +297,26 @@
         function stopRecordingUI() {
             isRecording = false;
             
-            // Reset manual button
-            btnManual.textContent = "Start Recording"; 
-            btnManual.classList.remove('bg-red-600', 'hover:bg-red-700', 'animate-pulse');
-            btnManual.classList.add('bg-slate-800', 'hover:bg-slate-700');
+            // Reset manual button back to normal text and Slate color
+            btnManual.innerHTML = "Start Recording"; 
+            btnManual.classList.remove('bg-red-600', 'hover:bg-red-700');
+            btnManual.classList.add('bg-slate-800', 'hover:bg-slate-700', 'dark:bg-slate-700', 'dark:hover:bg-slate-600');
             
-            // Reset 1s button
-            btn1s.textContent = "Record Strict 1s"; 
-            btn1s.classList.remove('bg-red-600', 'hover:bg-red-700', 'animate-pulse');
+            // Reset 1s button back to normal text and Purple color
+            btn1s.innerHTML = "Record Strict 1s"; 
+            btn1s.classList.remove('bg-red-600', 'hover:bg-red-700');
             btn1s.classList.add('bg-purple-600', 'hover:bg-purple-700');
             
-            // Enable download button with Emerald styling
+            // Enable download button
             btnDownload.disabled = false; 
             btnDownload.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-emerald-100', 'text-emerald-800');
             btnDownload.classList.add('bg-emerald-600', 'text-white', 'hover:bg-emerald-700', 'shadow-md');
         }
 
-        btnManual.addEventListener('click', () => { isRecording ? stopRecordingUI() : startRecordingUI(btnManual, "Stop Recording"); });
+        btnManual.addEventListener('click', () => { isRecording ? stopRecordingUI() : startRecordingUI(btnManual, "RECORDING..."); });
         btn1s.addEventListener('click', () => {
             if (isRecording) return; 
-            startRecordingUI(btn1s, "Recording (1s)...");
+            startRecordingUI(btn1s, "RECORDING (1s)...");
             setTimeout(() => { stopRecordingUI(); alert(`Diagnostic Complete.\nCaptured ${csvData.length} packets in 1 second.\n\nHardware Frequency: ${csvData.length} Hz`); }, 1000); 
         });
 
@@ -393,7 +396,6 @@
                     valSpan.textContent = ohms;
                     let intensity = map(ohms, 20000, 500, 0, 1);
                     intensity = Math.max(0, Math.min(1, intensity)); 
-                    // Using vibrant Red for pressure mapping (Medical standard)
                     dot.style.backgroundColor = `rgba(239,68,68,${0.2 + intensity*0.8})`;
                     dot.style.borderColor = `rgba(220,38,38,1)`;
                     dot.style.boxShadow = `0 0 ${15*intensity}px rgba(239,68,68,${intensity})`;
@@ -490,7 +492,6 @@
 
         function plotAllFSRs(xData, fsrArrays) {
             const colors = getChartColors();
-            // Distinct engineering colors for 8 traces so they are easy to read
             const traceColors = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#8b5cf6'];
             let traces = [];
 
