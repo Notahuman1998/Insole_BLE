@@ -2,7 +2,7 @@
 flowchart LR
 
 %% HARDWARE LAYER
-subgraph Hardware [Hardware Layer (ESP32 in Shoe)]
+subgraph Hardware 
   direction TB
   F[Physical Force] -->|Crushes| FSR[8x FSR Array]
   M[Foot Movement] -->|Rotates| MPU[MPU6050 IMU]
