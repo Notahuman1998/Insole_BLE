@@ -259,7 +259,7 @@
             let layout = {
                 paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
                 xaxis: {title: 'Sample Number', color: colors.text, gridcolor: colors.grid},
-                yaxis: {title: 'Resistance (Ohms)', color: colors.text, gridcolor: colors.grid, range: [0, 25000]},
+                yaxis: {title: 'Resistance (Ohms)', color: colors.text, gridcolor: colors.grid},
                 margin: {t: 10, b: 40, l: 50, r: 20},
                 showlegend: true,
                 legend: {font: {color: colors.text}}
@@ -342,6 +342,12 @@
         function startRecordingUI(btn, text) {
             isRecording = true; csvData = []; 
             
+            // Clear the graph before starting new recording
+            liveFsrCount = 0;
+            liveChartBuffer = { x: [], y: [[],[],[],[],[],[],[],[]] };
+            Plotly.purge('liveFsrChart');
+            initLiveChart();
+
             btn.innerHTML = `<span class="flex items-center justify-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>${text}</span>`;
             
             btn.classList.remove('bg-slate-800', 'bg-purple-600', 'hover:bg-slate-700', 'hover:bg-purple-700', 'dark:bg-slate-700', 'dark:hover:bg-slate-600');
@@ -422,11 +428,6 @@
                 const server = await bluetoothDevice.gatt.connect();
                 const service = await server.getPrimaryService(SERVICE_UUID);
                 const characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
-                
-                // Clear the graph before starting new stream
-                liveFsrCount = 0;
-                Plotly.purge('liveFsrChart');
-                initLiveChart();
 
                 await characteristic.startNotifications();
                 characteristic.addEventListener('characteristicvaluechanged', handleNotifications);
@@ -474,16 +475,11 @@
             document.getElementById('gyr-z').textContent=gz.toFixed(1); document.getElementById('bar-gz').style.width=map(gz,-250,250,0,100)+'%';
 
             let fsrVals = [];
-            liveFsrCount++;
-            liveChartBuffer.x.push(liveFsrCount);
 
             for(let i=0; i<8; i++) {
                 const ohms = view.getUint16(24 + (i * 2), true);
                 const actualOhms = (ohms === 65535 ? -1 : ohms);
                 fsrVals.push(actualOhms); 
-                
-                // Add to live buffer (use null instead of -1 so the chart line breaks if disconnected)
-                liveChartBuffer.y[i].push(ohms === 65535 ? null : ohms);
                 
                 const dot = document.getElementById(`dot-${i}`);
                 const valSpan = document.getElementById(`val-${i}`);
@@ -504,18 +500,26 @@
                 }
             }
 
-            // Flush buffer to chart 10 times a second (every 10 packets)
-            if (liveChartBuffer.x.length >= 10) {
-                Plotly.extendTraces('liveFsrChart', {
-                    x: Array.from({length: 8}, () => liveChartBuffer.x),
-                    y: liveChartBuffer.y
-                }, [0, 1, 2, 3, 4, 5, 6, 7], LIVE_MAX_POINTS);
-                
-                // Clear buffer
-                liveChartBuffer = { x: [], y: [[],[],[],[],[],[],[],[]] };
-            }
-
+            // Only update the live graph and save CSV data if actively recording
             if (isRecording) {
+                liveFsrCount++;
+                liveChartBuffer.x.push(liveFsrCount);
+                
+                for(let i=0; i<8; i++) {
+                    liveChartBuffer.y[i].push(fsrVals[i] === -1 ? null : fsrVals[i]);
+                }
+
+                // Flush buffer to chart 10 times a second (every 10 packets)
+                if (liveChartBuffer.x.length >= 10) {
+                    Plotly.extendTraces('liveFsrChart', {
+                        x: Array.from({length: 8}, () => liveChartBuffer.x),
+                        y: liveChartBuffer.y
+                    }, [0, 1, 2, 3, 4, 5, 6, 7], LIVE_MAX_POINTS);
+                    
+                    // Clear buffer
+                    liveChartBuffer = { x: [], y: [[],[],[],[],[],[],[],[]] };
+                }
+
                 csvData.push(`${ts},${p.toFixed(2)},${r.toFixed(2)},${ax.toFixed(2)},${ay.toFixed(2)},${az.toFixed(2)},${gx.toFixed(2)},${gy.toFixed(2)},${gz.toFixed(2)},${fsrVals.join(",")}\n`);
             }
         }
@@ -608,7 +612,7 @@
                 title: { text: 'Plantar Resistance (All 8 Channels)', font: {color: colors.text, size: 16} },
                 paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
                 xaxis: {title: 'Sample Number', color: colors.text, gridcolor: colors.grid},
-                yaxis: {title: 'Resistance (Ohms)', color: colors.text, gridcolor: colors.grid, range: [0, 25000]},
+                yaxis: {title: 'Resistance (Ohms)', color: colors.text, gridcolor: colors.grid},
                 margin: {t: 50, b: 50, l: 50, r: 20}
             };
             Plotly.newPlot('fsrChart', traces, layout, {responsive: true});
