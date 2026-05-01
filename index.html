@@ -123,6 +123,16 @@
                 </div>
             </section>
         </main>
+
+        <!-- NEW: Real-Time Live Graph -->
+        <section class="max-w-6xl mx-auto mt-6 bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+            <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-slate-800 dark:text-white">
+                <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                Real-Time Resistance Trace
+            </h2>
+            <div id="liveFsrChart" class="w-full h-[350px]"></div>
+        </section>
+
     </div>
 
     <div id="view-viewer" class="p-4 md:p-8 hidden">
@@ -156,7 +166,17 @@
     </div>
 
     <script>
-// --- 1. LIGHT/DARK THEME TOGGLE ---
+        function getChartColors() {
+            const isDark = document.documentElement.classList.contains('dark');
+            return {
+                bg: isDark ? '#0f172a' : '#ffffff',
+                text: isDark ? '#f8fafc' : '#1e293b',
+                grid: isDark ? '#334155' : '#e2e8f0',
+                primary: isDark ? '#10b981' : '#059669' 
+            };
+        }
+
+        // --- 1. LIGHT/DARK THEME TOGGLE ---
         const themeToggleBtn = document.getElementById('theme-toggle');
         const darkIcon = document.getElementById('theme-icon-dark');
         const lightIcon = document.getElementById('theme-icon-light');
@@ -181,20 +201,18 @@
                 localStorage.setItem('color-theme', 'dark');
             }
             
-            // THE FIX: Dynamically inject new colors into the Plotly charts!
-            const latencyChart = document.getElementById('latencyChart');
-            if (latencyChart && latencyChart.data) {
-                const colors = getChartColors();
-                const layoutUpdate = {
-                    'title.font.color': colors.text,
-                    'xaxis.color': colors.text,
-                    'yaxis.color': colors.text,
-                    'xaxis.gridcolor': colors.grid,
-                    'yaxis.gridcolor': colors.grid
-                };
-                Plotly.relayout('latencyChart', layoutUpdate);
-                Plotly.relayout('fsrChart', layoutUpdate);
-            }
+            const colors = getChartColors();
+            const layoutUpdate = {
+                'title.font.color': colors.text,
+                'xaxis.color': colors.text,
+                'yaxis.color': colors.text,
+                'xaxis.gridcolor': colors.grid,
+                'yaxis.gridcolor': colors.grid,
+                'legend.font.color': colors.text
+            };
+            if (document.getElementById('latencyChart').data) Plotly.relayout('latencyChart', layoutUpdate);
+            if (document.getElementById('fsrChart').data) Plotly.relayout('fsrChart', layoutUpdate);
+            if (document.getElementById('liveFsrChart').data) Plotly.relayout('liveFsrChart', layoutUpdate);
             
             window.dispatchEvent(new Event('resize')); 
         });
@@ -221,6 +239,34 @@
         }
         tabLive.addEventListener('click', () => switchTab('live'));
         tabViewer.addEventListener('click', () => switchTab('viewer'));
+
+        // --- REAL-TIME CHART SETUP ---
+        let liveFsrCount = 0;
+        const LIVE_MAX_POINTS = 300; // Shows last 3 seconds of data (at 100Hz)
+        let liveChartBuffer = { x: [], y: [[],[],[],[],[],[],[],[]] };
+
+        function initLiveChart() {
+            const colors = getChartColors();
+            const traceColors = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#8b5cf6'];
+            let traces = [];
+            for (let i = 0; i < 8; i++) {
+                traces.push({
+                    x: [], y: [],
+                    mode: 'lines', name: 'CH ' + (i+1),
+                    line: {width: 2, color: traceColors[i]}
+                });
+            }
+            let layout = {
+                paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+                xaxis: {title: 'Sample Number', color: colors.text, gridcolor: colors.grid},
+                yaxis: {title: 'Resistance (Ohms)', color: colors.text, gridcolor: colors.grid, range: [0, 25000]},
+                margin: {t: 10, b: 40, l: 50, r: 20},
+                showlegend: true,
+                legend: {font: {color: colors.text}}
+            };
+            Plotly.newPlot('liveFsrChart', traces, layout, {responsive: true});
+        }
+        initLiveChart(); // Initialize empty chart on load
 
         // --- 3. LIVE DASHBOARD (Three.js & BLE) ---
         const fsrContainer = document.getElementById('fsr-values');
@@ -253,7 +299,7 @@
         geometry.center();
 
         const material = new THREE.MeshPhysicalMaterial({ 
-            color: 0x334155,  // Dark Slate
+            color: 0x334155,
             metalness: 0.3, 
             roughness: 0.4, 
             clearcoat: 0.8, 
@@ -344,7 +390,6 @@
         let lastTimestamp = 0;
         let watchdogTimer = null; // The safety timer
 
-        // Called if connection is explicitly dropped OR if watchdog timer runs out
         function handleDisconnection() {
             console.log("BLE Connection Lost or Timeout!");
             
@@ -356,24 +401,19 @@
             btnConnect.classList.remove('hidden');
             btnConnect.textContent = "Reconnect Device";
             btnConnect.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-            btnConnect.classList.add('bg-red-600', 'hover:bg-red-700'); // Turn button red to grab attention
+            btnConnect.classList.add('bg-red-600', 'hover:bg-red-700');
             
-            // Stop recording safely if it dropped mid-record
             if (isRecording) stopRecordingUI();
-            
             if(watchdogTimer) clearTimeout(watchdogTimer);
         }
 
         document.getElementById('btn-connect').addEventListener('click', async () => {
             try {
-                // Change button text in case it was a reconnect attempt
                 document.getElementById('btn-connect').textContent = "Pair Device";
                 document.getElementById('btn-connect').classList.remove('bg-red-600', 'hover:bg-red-700');
                 document.getElementById('btn-connect').classList.add('bg-blue-600', 'hover:bg-blue-700');
 
                 bluetoothDevice = await navigator.bluetooth.requestDevice({ filters: [{ name: 'SmartInsole_BLE' }], optionalServices: [SERVICE_UUID] });
-                
-                // Add explicit disconnect listener
                 bluetoothDevice.addEventListener('gattserverdisconnected', handleDisconnection);
 
                 document.getElementById('status-text').textContent = 'CONNECTING...';
@@ -383,6 +423,11 @@
                 const service = await server.getPrimaryService(SERVICE_UUID);
                 const characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
                 
+                // Clear the graph before starting new stream
+                liveFsrCount = 0;
+                Plotly.purge('liveFsrChart');
+                initLiveChart();
+
                 await characteristic.startNotifications();
                 characteristic.addEventListener('characteristicvaluechanged', handleNotifications);
 
@@ -391,7 +436,6 @@
                 document.getElementById('status-dot').className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]';
                 document.getElementById('btn-connect').classList.add('hidden');
                 
-                // Start the initial watchdog timer
                 if(watchdogTimer) clearTimeout(watchdogTimer);
                 watchdogTimer = setTimeout(handleDisconnection, 2000);
 
@@ -401,7 +445,6 @@
         function map(v,a,b,c,d){ return Math.min(d,Math.max(c,(v-a)*(d-c)/(b-a)+c)); }
 
         function handleNotifications(event) {
-            // SAFETY WATCHDOG: Reset the 2-second timer every time a packet arrives
             if(watchdogTimer) clearTimeout(watchdogTimer);
             watchdogTimer = setTimeout(handleDisconnection, 2000);
 
@@ -431,9 +474,16 @@
             document.getElementById('gyr-z').textContent=gz.toFixed(1); document.getElementById('bar-gz').style.width=map(gz,-250,250,0,100)+'%';
 
             let fsrVals = [];
+            liveFsrCount++;
+            liveChartBuffer.x.push(liveFsrCount);
+
             for(let i=0; i<8; i++) {
                 const ohms = view.getUint16(24 + (i * 2), true);
-                fsrVals.push(ohms === 65535 ? -1 : ohms); 
+                const actualOhms = (ohms === 65535 ? -1 : ohms);
+                fsrVals.push(actualOhms); 
+                
+                // Add to live buffer (use null instead of -1 so the chart line breaks if disconnected)
+                liveChartBuffer.y[i].push(ohms === 65535 ? null : ohms);
                 
                 const dot = document.getElementById(`dot-${i}`);
                 const valSpan = document.getElementById(`val-${i}`);
@@ -454,13 +504,23 @@
                 }
             }
 
+            // Flush buffer to chart 10 times a second (every 10 packets)
+            if (liveChartBuffer.x.length >= 10) {
+                Plotly.extendTraces('liveFsrChart', {
+                    x: Array.from({length: 8}, () => liveChartBuffer.x),
+                    y: liveChartBuffer.y
+                }, [0, 1, 2, 3, 4, 5, 6, 7], LIVE_MAX_POINTS);
+                
+                // Clear buffer
+                liveChartBuffer = { x: [], y: [[],[],[],[],[],[],[],[]] };
+            }
+
             if (isRecording) {
                 csvData.push(`${ts},${p.toFixed(2)},${r.toFixed(2)},${ax.toFixed(2)},${ay.toFixed(2)},${az.toFixed(2)},${gx.toFixed(2)},${gy.toFixed(2)},${gz.toFixed(2)},${fsrVals.join(",")}\n`);
             }
         }
 
         // --- 4. DATA VIEWER (Plotly & PapaParse) ---
-        
         document.getElementById('csvFileInput').addEventListener('change', function(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -515,16 +575,6 @@
 
             plotLatency(sampleNumbers, deltas);
             plotAllFSRs(sampleNumbers, fsrArrays);
-        }
-
-        function getChartColors() {
-            const isDark = document.documentElement.classList.contains('dark');
-            return {
-                bg: isDark ? '#0f172a' : '#ffffff',
-                text: isDark ? '#f8fafc' : '#1e293b',
-                grid: isDark ? '#334155' : '#e2e8f0',
-                primary: isDark ? '#10b981' : '#059669' 
-            };
         }
 
         function plotLatency(xData, yData) {
