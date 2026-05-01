@@ -124,15 +124,16 @@
             </section>
         </main>
 
-        <!-- NEW: Real-Time Live Graph & Statistics -->
+        <!-- Real-Time Live Graph & Statistics -->
         <section class="max-w-6xl mx-auto mt-6 bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+            
+            <!-- TOGGLE SWITCH IMPLEMENTED HERE -->
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-lg font-bold flex items-center gap-2 text-slate-800 dark:text-white">
                     <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
                     Real-Time Resistance Trace
                 </h2>
-    
-                <!-- NEW TOGGLE SWITCH -->
+                
                 <div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
                     <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Math Stats</span>
                     <label class="relative inline-flex items-center cursor-pointer">
@@ -141,9 +142,9 @@
                     </label>
                 </div>
             </div>
+
             <div id="liveFsrChart" class="w-full h-[350px]"></div>
 
-            <!-- NEW: Live Statistics Table -->
             <div id="live-stats-container" class="mt-6 hidden">
                 <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">Rolling Statistics (Visible 3-Second Window)</h3>
                 <div class="overflow-x-auto">
@@ -188,6 +189,29 @@
 
         <main class="max-w-6xl mx-auto space-y-6">
             <div id="stats" class="text-lg font-bold text-slate-800 dark:text-white text-center bg-white dark:bg-slate-900 py-3 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800">No data loaded</div>
+
+            <!-- OVERALL RECORDING STATS IMPLEMENTED HERE -->
+            <div id="overall-stats-container" class="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 hidden">
+                <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">Overall Recording Statistics</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-800/50">
+                            <tr>
+                                <th class="px-4 py-2 rounded-l-lg">Channel</th>
+                                <th class="px-4 py-2">Mean (Ω)</th>
+                                <th class="px-4 py-2">Std Dev (Ω)</th>
+                                <th class="px-4 py-2">Min (Ω)</th>
+                                <th class="px-4 py-2">Max (Ω)</th>
+                                <th class="px-4 py-2">P2P Noise (Ω)</th>
+                                <th class="px-4 py-2 rounded-r-lg">Noise %</th>
+                            </tr>
+                        </thead>
+                        <tbody id="overall-stats-body" class="divide-y divide-slate-100 dark:divide-slate-800">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
             <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                 <div id="latencyChart" class="w-full h-80"></div>
@@ -279,7 +303,6 @@
         const LIVE_MAX_POINTS = 300; // Shows last 3 seconds of data (at 100Hz)
         let liveChartBuffer = { x: [], y: [[],[],[],[],[],[],[],[]] };
         
-        // NEW: Buffer specifically for calculating math stats over the visible window
         let liveStatsWindow = Array.from({length: 8}, () => []);
 
         function initLiveChart() {
@@ -305,28 +328,25 @@
         }
         initLiveChart(); // Initialize empty chart on load
 
-        // NEW: Function to crunch numbers and render the stats table
         function updateLiveStats() {
-            // NEW: Check the toggle state first!
+            // CPU SAVER: Check the toggle state first!
             const showStats = document.getElementById('toggle-stats').checked;
             const container = document.getElementById('live-stats-container');
-
+            
             if (!showStats) {
-                container.classList.add('hidden'); // Hide table
+                container.classList.add('hidden');
                 return; // Exit function immediately to save CPU power
             }
             
             container.classList.remove('hidden');
             const tbody = document.getElementById('live-stats-body');
-            container.classList.remove('hidden');
             
             let html = '';
-            // Match the colors of the Plotly lines
             const traceColors = ['text-red-500', 'text-orange-500', 'text-yellow-500', 'text-lime-500', 'text-emerald-500', 'text-cyan-500', 'text-blue-500', 'text-violet-500'];
             
             for(let i = 0; i < 8; i++) {
                 const validData = liveStatsWindow[i].filter(v => v !== null);
-                if (validData.length === 0) continue; // Skip if sensor is disconnected (-1)
+                if (validData.length === 0) continue; 
                 
                 const n = validData.length;
                 const min = Math.min(...validData);
@@ -353,6 +373,49 @@
             
             if (html === '') {
                 html = '<tr><td colspan="7" class="px-4 py-4 text-center text-slate-500 italic">No active sensors detected in the current window.</td></tr>';
+            }
+            
+            tbody.innerHTML = html;
+        }
+
+        // OVERALL STATS FUNCTION
+        function updateOverallStats(fsrArrays) {
+            const container = document.getElementById('overall-stats-container');
+            const tbody = document.getElementById('overall-stats-body');
+            container.classList.remove('hidden');
+            
+            let html = '';
+            const traceColors = ['text-red-500', 'text-orange-500', 'text-yellow-500', 'text-lime-500', 'text-emerald-500', 'text-cyan-500', 'text-blue-500', 'text-violet-500'];
+            
+            for(let i = 0; i < 8; i++) {
+                const validData = fsrArrays[i].filter(v => v !== null);
+                if (validData.length === 0) continue; 
+                
+                const n = validData.length;
+                const min = Math.min(...validData);
+                const max = Math.max(...validData);
+                const p2p = max - min;
+                const sum = validData.reduce((a, b) => a + b, 0);
+                const mean = sum / n;
+                const variance = validData.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / n;
+                const stdDev = Math.sqrt(variance);
+                const noisePct = mean > 0 ? (p2p / mean) * 100 : 0;
+                
+                html += `
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                        <td class="px-4 py-2 font-bold ${traceColors[i]}">CH ${i+1}</td>
+                        <td class="px-4 py-2 font-mono text-slate-700 dark:text-slate-300">${mean.toFixed(1)}</td>
+                        <td class="px-4 py-2 font-mono text-slate-700 dark:text-slate-300">${stdDev.toFixed(2)}</td>
+                        <td class="px-4 py-2 font-mono text-slate-700 dark:text-slate-300">${min}</td>
+                        <td class="px-4 py-2 font-mono text-slate-700 dark:text-slate-300">${max}</td>
+                        <td class="px-4 py-2 font-mono text-slate-700 dark:text-slate-300">${p2p}</td>
+                        <td class="px-4 py-2 font-mono font-bold ${noisePct < 2.0 ? 'text-emerald-500' : 'text-orange-500'}">${noisePct.toFixed(3)}%</td>
+                    </tr>
+                `;
+            }
+            
+            if (html === '') {
+                html = '<tr><td colspan="7" class="px-4 py-4 text-center text-slate-500 italic">No active sensors detected in the recording.</td></tr>';
             }
             
             tbody.innerHTML = html;
@@ -432,7 +495,6 @@
         function startRecordingUI(btn, text) {
             isRecording = true; csvData = []; 
             
-            // Clear the graph and stats before starting new recording
             liveFsrCount = 0;
             liveChartBuffer = { x: [], y: [[],[],[],[],[],[],[],[]] };
             liveStatsWindow = Array.from({length: 8}, () => []);
@@ -486,7 +548,7 @@
         
         let bluetoothDevice = null;
         let lastTimestamp = 0;
-        let watchdogTimer = null; // The safety timer
+        let watchdogTimer = null; 
 
         function handleDisconnection() {
             console.log("BLE Connection Lost or Timeout!");
@@ -529,7 +591,6 @@
                 document.getElementById('status-dot').className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]';
                 document.getElementById('btn-connect').classList.add('hidden');
                 
-                // Reset stats UI on connect
                 liveStatsWindow = Array.from({length: 8}, () => []);
                 document.getElementById('live-stats-container').classList.add('hidden');
                 
@@ -596,7 +657,6 @@
                 }
             }
 
-            // Only update the live graph, table, and save CSV data if actively recording
             if (isRecording) {
                 liveFsrCount++;
                 liveChartBuffer.x.push(liveFsrCount);
@@ -605,31 +665,26 @@
                     const val = fsrVals[i] === -1 ? null : fsrVals[i];
                     liveChartBuffer.y[i].push(val);
                     
-                    // Add to stats sliding window
                     liveStatsWindow[i].push(val);
                     if (liveStatsWindow[i].length > LIVE_MAX_POINTS) {
                         liveStatsWindow[i].shift();
                     }
                 }
 
-                // Flush buffer to chart and update stats 10 times a second (every 10 packets)
                 if (liveChartBuffer.x.length >= 10) {
                     Plotly.extendTraces('liveFsrChart', {
                         x: Array.from({length: 8}, () => liveChartBuffer.x),
                         y: liveChartBuffer.y
                     }, [0, 1, 2, 3, 4, 5, 6, 7], LIVE_MAX_POINTS);
                     
-                    // Create a sliding window so the graph doesn't endlessly zoom out
                     let minX = Math.max(0, liveFsrCount - LIVE_MAX_POINTS);
                     let maxX = Math.max(LIVE_MAX_POINTS, liveFsrCount);
                     Plotly.relayout('liveFsrChart', {
                         'xaxis.range': [minX, maxX]
                     });
                     
-                    // Clear chart buffer
                     liveChartBuffer = { x: [], y: [[],[],[],[],[],[],[],[]] };
                     
-                    // Update HTML Stats Table
                     updateLiveStats();
                 }
 
@@ -692,6 +747,9 @@
 
             plotLatency(sampleNumbers, deltas);
             plotAllFSRs(sampleNumbers, fsrArrays);
+            
+            // NEW CALL: Render the overall stats for the loaded CSV
+            updateOverallStats(fsrArrays);
         }
 
         function plotLatency(xData, yData) {
