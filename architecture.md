@@ -31,27 +31,3 @@ subgraph Dashboard [Frontend Dashboard (Browser)]
   Download -.->|Upload| Analyzer[Post-Process Analyzer]
 end
 ```
-
-Key points:
-
-- The block must start with **three backticks**, then `mermaid`, on its own line.[page:1]  
-- Remove the extra backticks and the surrounding inline backtick (`) that currently wrap the whole thing.[page:1]  
-- Keep the diagram definition exactly as Mermaid syntax (no Markdown around it).[page:1]  
-
-After you commit this change, GitHub should render the diagram visually above the code block in the file view.
-
-## Use an external visual editor (optional)
-
-If you want to experiment visually before committing, you can:
-
-- Copy only the Mermaid diagram (everything from `flowchart LR` down, no backticks).[page:1]  
-- Paste it into an online Mermaid editor like the Mermaid Live Editor or similar tools.  
-- Tweak layout, labels, or directions there and then paste the final version back into your `architecture.md` inside a ` ```mermaid` code block.[page:1]  
-
-Would you prefer to keep the entire architecture as one Mermaid flowchart, or split it into two diagrams (hardware vs. software) in the markdown file?  
-
-<user_response_autocomplete>
-Keep it as one flowchart in the file
-I want two diagrams hardware and software
-I also want a sequence diagram version
-</user_response_autocomplete>
