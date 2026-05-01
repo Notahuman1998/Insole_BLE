@@ -126,10 +126,21 @@
 
         <!-- NEW: Real-Time Live Graph & Statistics -->
         <section class="max-w-6xl mx-auto mt-6 bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
-            <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-slate-800 dark:text-white">
-                <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
-                Real-Time Resistance Trace
-            </h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold flex items-center gap-2 text-slate-800 dark:text-white">
+                    <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                    Real-Time Resistance Trace
+                </h2>
+    
+                <!-- NEW TOGGLE SWITCH -->
+                <div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Math Stats</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="toggle-stats" class="sr-only peer">
+                        <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-emerald-500"></div>
+                    </label>
+                </div>
+            </div>
             <div id="liveFsrChart" class="w-full h-[350px]"></div>
 
             <!-- NEW: Live Statistics Table -->
@@ -296,7 +307,16 @@
 
         // NEW: Function to crunch numbers and render the stats table
         function updateLiveStats() {
+            // NEW: Check the toggle state first!
+            const showStats = document.getElementById('toggle-stats').checked;
             const container = document.getElementById('live-stats-container');
+
+            if (!showStats) {
+                container.classList.add('hidden'); // Hide table
+                return; // Exit function immediately to save CPU power
+            }
+            
+            container.classList.remove('hidden');
             const tbody = document.getElementById('live-stats-body');
             container.classList.remove('hidden');
             
