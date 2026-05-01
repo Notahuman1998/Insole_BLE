@@ -3,7 +3,7 @@ flowchart LR
 
 %% HARDWARE LAYER
 subgraph Hardware 
-  direction TB
+direction TB
   F[Physical Force] -->|Crushes| FSR[8x FSR Array]
   M[Foot Movement] -->|Rotates| MPU[MPU6050 IMU]
   FSR -->|Analog Voltage| ADC[ESP32 ADC]
